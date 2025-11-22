@@ -33,11 +33,19 @@ This is a complete digital management system for archaeozoological data, impleme
 ## Architecture
 
 ### Database Integration
+
+**Multi-Database Support**:
+- **SQLite**: File-based, simple setup, good for single-user
+- **PostgreSQL**: Server-based, multi-user, better for team collaboration
+
+**Schema**:
 - **fauna_table**: Main table with 34 fields following SCHEDA FR standard
   - Fields 1-6: Foreign key relationship with pyArchInit's `us_table` (sito, area, saggio, us, datazione_us)
   - Fields 7-34: Fauna-specific data (species, NMI, taphonomy, etc.)
 - **fauna_voc**: Controlled vocabulary for dropdowns and data validation
 - **Join strategy**: id_us → us_table.id_us for automatic retrieval of stratigraphic context
+
+**Auto-creation**: Tables are created automatically on first connection if missing, with proper syntax adaptation for PostgreSQL (BOOLEAN TRUE/FALSE, GENERATED ALWAYS AS IDENTITY, etc.)
 
 ### Interface Organization
 Four-tab layout following SCHEDA FR sections:
@@ -54,27 +62,60 @@ Four-tab layout following SCHEDA FR sections:
 
 ## Common Development Tasks
 
-### Installing the System
+### Quick Start Installation
+
 ```bash
-# 1. Install dependencies
+# 1. Crea e attiva virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # Su macOS/Linux
+# .venv\Scripts\activate   # Su Windows
+
+# 2. Installa dipendenze
 pip install -r requirements.txt
 
-# 2. Install database tables
-python install_db.py
-
-# 3. Verify installation
-python install_db.py --verify
-
-# 4. Run tests
-python test_fauna_system.py
+# 3. Avvia l'applicazione
+./start_fauna_manager.sh  # macOS/Linux
+# python start_fauna.py   # Alternativa cross-platform
 ```
 
+Al primo avvio:
+1. Si apre un dialog per selezionare il database (SQLite o PostgreSQL)
+2. Le tabelle `fauna_table` e `fauna_voc` vengono create automaticamente se mancanti
+3. La configurazione viene salvata in `~/.pyarchinit/fauna_db_config.json`
+
+### Database Support
+
+**SQLite** (predefinito):
+- Database file: `~/pyarchinit/pyarchinit_DB_folder/pyarchinit_db.sqlite`
+- Nessuna configurazione aggiuntiva richiesta
+
+**PostgreSQL**:
+- Host: localhost (o server remoto)
+- Porta: 5432 (predefinita) o personalizzata
+- Database: pyarchinit (o altro)
+- Credenziali: username/password
+- Password può essere salvata (opzionale, vedi `SAVE_PASSWORD` in `db_config_manager.py`)
+
+### Cambiare Database Durante l'Uso
+
+Click sul pulsante `🔄 Cambia Database` nella toolbar per:
+- Passare da SQLite a PostgreSQL (o viceversa)
+- Connettersi a un database diverso
+- Le tabelle vengono verificate/create automaticamente
+
 ### Running the Application
+
 ```bash
-# Standalone mode
+# Metodo 1: Script di avvio (consigliato)
+./start_fauna_manager.sh
+
+# Metodo 2: Python diretto
+python start_fauna.py
+
+# Metodo 3: Standalone (senza virtual environment)
 python fauna_manager.py
 
-# From QGIS Python console
+# Metodo 4: Da QGIS Python console
 import sys
 sys.path.insert(0, '/Users/enzo/Desktop/schedafaune')
 from qgis_integration import FaunaQGISIntegration
@@ -83,20 +124,45 @@ integration.open_fauna_manager()
 ```
 
 ### Adding New Vocabulary Values
+
+**SQLite**:
 ```sql
 INSERT INTO fauna_voc (campo, valore, ordinamento)
 VALUES ('specie', 'New Species Name', 100);
 ```
 
-### Database Location
-Default: `~/pyarchinit/pyarchinit_DB_folder/pyarchinit_db.sqlite`
+**PostgreSQL**:
+```sql
+INSERT INTO fauna_voc (campo, valore, ordinamento)
+VALUES ('specie', 'New Species Name', 100)
+ON CONFLICT (campo, valore) DO NOTHING;
+```
+
+### Configuration Files
+
+- **Database config**: `~/.pyarchinit/fauna_db_config.json`
+  - Tipo database (sqlite/postgres)
+  - Parametri connessione
+  - Password (opzionale, configurabile)
+
+- **Virtual environment**: `.venv/`
+  - Dipendenze Python isolate
+  - Creato automaticamente da `start_fauna_manager.sh`
 
 ## Key Design Patterns
 
 ### Database Access
-All database operations go through `FaunaDB` class:
-- Automatic connection management
-- Table creation on first run
+All database operations go through database wrapper classes:
+- **fauna_db_wrapper.py**: Factory function `create_fauna_db()` selects SQLite or PostgreSQL adapter
+- **fauna_db.py**: SQLite implementation (`FaunaDB` class)
+- **fauna_db_postgres.py**: PostgreSQL implementation (`FaunaDBPostgres` class)
+- **db_config_manager.py**: Manages config persistence in `~/.pyarchinit/fauna_db_config.json`
+- **database_selector.py**: Qt dialog for database selection with connection testing
+
+Features:
+- Automatic connection management with autocommit for DDL operations
+- Table auto-creation on first connection with SQL syntax adaptation
+- SQL comment removal and BOOLEAN conversion (1/0 → TRUE/FALSE) for PostgreSQL
 - Foreign key enforcement for us_table relationship
 - Parameterized queries to prevent SQL injection
 
