@@ -1,0 +1,15 @@
+# Requisiti per Fauna Manager - pyArchInit
+
+# Framework Qt
+PyQt5==5.15.10
+
+# Generazione PDF
+reportlab>=3.6.0
+
+# Database (incluso in Python standard)
+# sqlite3
+
+# Opzionali per sviluppo
+pandas>=1.3.0  # Per import/export Excel
+openpyxl>=3.0.0  # Per leggere file Excel
+psycopg2-binary
