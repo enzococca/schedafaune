@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (
     QGroupBox, QGridLayout, QSplitter
 )
 from PyQt5.QtCore import Qt, QDate, pyqtSignal
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
 from typing import Dict, List, Optional
+from datetime import datetime
 import os
 
 from fauna_db_wrapper import create_fauna_db
@@ -142,6 +143,10 @@ class FaunaManager(QWidget):
         # Tab 4: Dati Contestuali
         self.tab_contestuali = self.create_tab_contestuali()
         self.tab_widget.addTab(self.tab_contestuali, "Dati Contestuali")
+
+        # Tab 5: Statistiche
+        self.tab_statistiche = self.create_tab_statistiche()
+        self.tab_widget.addTab(self.tab_statistiche, "📊 Statistiche")
 
         main_layout.addWidget(self.tab_widget)
 
@@ -390,6 +395,148 @@ class FaunaManager(QWidget):
         layout.addStretch()
 
         return widget
+
+    def create_tab_statistiche(self) -> QWidget:
+        """Crea il tab delle statistiche riepilogative"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Pulsante per aggiornare le statistiche
+        btn_refresh = QPushButton("🔄 Aggiorna Statistiche")
+        btn_refresh.clicked.connect(self.update_statistics)
+        layout.addWidget(btn_refresh)
+
+        # Area di testo per le statistiche
+        self.txt_statistiche = QTextEdit()
+        self.txt_statistiche.setReadOnly(True)
+        self.txt_statistiche.setFont(QFont("Courier", 10))
+        layout.addWidget(self.txt_statistiche)
+
+        return widget
+
+    def update_statistics(self):
+        """Calcola e visualizza le statistiche riepilogative"""
+        try:
+            # Recupera tutti i record
+            records = self.db.get_all_fauna_records()
+
+            if not records:
+                self.txt_statistiche.setText("Nessun record presente nel database.")
+                return
+
+            # Prepara il testo delle statistiche
+            stats_text = []
+            stats_text.append("=" * 80)
+            stats_text.append("STATISTICHE RIEPILOGATIVE - SCHEDE FAUNA")
+            stats_text.append("=" * 80)
+            stats_text.append("")
+
+            # === STATISTICHE GENERALI ===
+            stats_text.append("📋 STATISTICHE GENERALI")
+            stats_text.append("-" * 80)
+            stats_text.append(f"Numero totale record: {len(records)}")
+
+            # Conteggio siti univoci
+            siti = set(r.get('sito', '') for r in records if r.get('sito'))
+            stats_text.append(f"Numero siti univoci: {len(siti)}")
+            if siti:
+                stats_text.append(f"  Siti: {', '.join(sorted(siti))}")
+
+            # Conteggio US univoche
+            us_list = set(r.get('us', '') for r in records if r.get('us'))
+            stats_text.append(f"Numero US univoche: {len(us_list)}")
+
+            stats_text.append("")
+
+            # === STATISTICHE NUMERICHE ===
+            stats_text.append("🔢 STATISTICHE NUMERICHE")
+            stats_text.append("-" * 80)
+
+            # NMI (Numero Minimo Individui)
+            nmi_values = [float(r['numero_minimo_individui']) for r in records
+                         if r.get('numero_minimo_individui') not in (None, '', 0)]
+            if nmi_values:
+                stats_text.append(f"Numero Minimo Individui (NMI):")
+                stats_text.append(f"  Totale record con NMI: {len(nmi_values)}")
+                stats_text.append(f"  Media: {sum(nmi_values)/len(nmi_values):.2f}")
+                stats_text.append(f"  Minimo: {min(nmi_values):.2f}")
+                stats_text.append(f"  Massimo: {max(nmi_values):.2f}")
+                stats_text.append(f"  Somma totale: {sum(nmi_values):.2f}")
+            else:
+                stats_text.append("Numero Minimo Individui (NMI): Nessun dato")
+
+            # Misure Ossa
+            misure_values = [float(r['misure_ossa']) for r in records
+                            if r.get('misure_ossa') not in (None, '', 0)]
+            if misure_values:
+                stats_text.append(f"\nMisure Ossa (mm):")
+                stats_text.append(f"  Totale misurazioni: {len(misure_values)}")
+                stats_text.append(f"  Media: {sum(misure_values)/len(misure_values):.2f} mm")
+                stats_text.append(f"  Minimo: {min(misure_values):.2f} mm")
+                stats_text.append(f"  Massimo: {max(misure_values):.2f} mm")
+            else:
+                stats_text.append("\nMisure Ossa: Nessun dato")
+
+            stats_text.append("")
+
+            # === STATISTICHE CATEGORIALI ===
+            stats_text.append("📊 DISTRIBUZIONE PER CATEGORIE")
+            stats_text.append("-" * 80)
+
+            # Funzione helper per contare valori
+            def count_values(field_name, label):
+                values_count = {}
+                for r in records:
+                    val = r.get(field_name, '')
+                    if val and val.strip():
+                        values_count[val] = values_count.get(val, 0) + 1
+
+                if values_count:
+                    stats_text.append(f"\n{label}:")
+                    # Ordina per frequenza decrescente
+                    sorted_items = sorted(values_count.items(), key=lambda x: x[1], reverse=True)
+                    for val, count in sorted_items[:10]:  # Top 10
+                        percentage = (count / len(records)) * 100
+                        stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
+                else:
+                    stats_text.append(f"\n{label}: Nessun dato")
+
+            # Specie
+            count_values('specie', 'Specie (Top 10)')
+
+            # Contesto
+            count_values('contesto', 'Contesto')
+
+            # Metodologia Recupero
+            count_values('metodologia_recupero', 'Metodologia di Recupero')
+
+            # Stato di Conservazione
+            count_values('stato_conservazione', 'Stato di Conservazione')
+
+            # Connessione Anatomica
+            count_values('resti_connessione_anatomica', 'Resti in Connessione Anatomica')
+
+            # Tipologia Accumulo
+            count_values('tipologia_accumulo', 'Tipologia di Accumulo')
+
+            # Tracce di Combustione
+            count_values('tracce_combustione', 'Tracce di Combustione')
+
+            # Stato di Frammentazione
+            count_values('stato_frammentazione', 'Stato di Frammentazione')
+
+            stats_text.append("")
+            stats_text.append("=" * 80)
+            stats_text.append(f"Report generato il: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+            stats_text.append("=" * 80)
+
+            # Visualizza le statistiche
+            self.txt_statistiche.setText("\n".join(stats_text))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nel calcolo delle statistiche:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def populate_combos(self):
         """Popola le combo box con i valori del vocabolario"""
