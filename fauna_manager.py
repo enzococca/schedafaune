@@ -370,40 +370,56 @@ class FaunaManager(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        form = QFormLayout()
-
         # Configura i QTextEdit per espandersi e adattarsi al ridimensionamento
+        # Usa QVBoxLayout invece di QFormLayout per permettere l'espansione completa in larghezza
+
+        # Note Terreno Giacitura
+        lbl_note_terreno = QLabel("Note Terreno Giacitura:")
+        layout.addWidget(lbl_note_terreno)
         self.txt_note_terreno = QTextEdit()
         self.txt_note_terreno.setMinimumHeight(60)
         self.txt_note_terreno.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Note Terreno Giacitura:", self.txt_note_terreno)
+        layout.addWidget(self.txt_note_terreno)
 
+        # Campionature Effettuate
+        lbl_campionature = QLabel("Campionature Effettuate:")
+        layout.addWidget(lbl_campionature)
         self.txt_campionature = QTextEdit()
         self.txt_campionature.setMinimumHeight(60)
         self.txt_campionature.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Campionature Effettuate:", self.txt_campionature)
+        layout.addWidget(self.txt_campionature)
 
+        # Affidabilità Stratigrafica
+        lbl_affidabilita = QLabel("Affidabilità Stratigrafica:")
+        layout.addWidget(lbl_affidabilita)
         self.txt_affidabilita = QTextEdit()
         self.txt_affidabilita.setMinimumHeight(60)
         self.txt_affidabilita.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Affidabilità Stratigrafica:", self.txt_affidabilita)
+        layout.addWidget(self.txt_affidabilita)
 
+        # Classi Reperti Associazione
+        lbl_classi_reperti = QLabel("Classi Reperti Associazione:")
+        layout.addWidget(lbl_classi_reperti)
         self.txt_classi_reperti = QTextEdit()
         self.txt_classi_reperti.setMinimumHeight(60)
         self.txt_classi_reperti.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Classi Reperti Associazione:", self.txt_classi_reperti)
+        layout.addWidget(self.txt_classi_reperti)
 
+        # Osservazioni
+        lbl_osservazioni = QLabel("Osservazioni:")
+        layout.addWidget(lbl_osservazioni)
         self.txt_osservazioni = QTextEdit()
         self.txt_osservazioni.setMinimumHeight(80)
         self.txt_osservazioni.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Osservazioni:", self.txt_osservazioni)
+        layout.addWidget(self.txt_osservazioni)
 
+        # Interpretazione
+        lbl_interpretazione = QLabel("Interpretazione:")
+        layout.addWidget(lbl_interpretazione)
         self.txt_interpretazione = QTextEdit()
         self.txt_interpretazione.setMinimumHeight(80)
         self.txt_interpretazione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        form.addRow("Interpretazione:", self.txt_interpretazione)
-
-        layout.addLayout(form)
+        layout.addWidget(self.txt_interpretazione)
 
         return widget
 
