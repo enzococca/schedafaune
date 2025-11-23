@@ -238,6 +238,11 @@ class FaunaManager(QWidget):
         self.combo_us.currentIndexChanged.connect(self.on_us_selected)
         form_id.addRow("US *:", self.combo_us)
 
+        # Campo Nome US separato (solo numero US)
+        self.txt_us = QLineEdit()
+        self.txt_us.setReadOnly(True)
+        form_id.addRow("Nome US:", self.txt_us)
+
         self.txt_sito = QLineEdit()
         self.txt_sito.setReadOnly(True)
         form_id.addRow("Sito:", self.txt_sito)
@@ -567,6 +572,17 @@ class FaunaManager(QWidget):
             stats_text.append(f"Numero aree univoche: {len(aree)}")
             stats_text.append(f"Numero saggi univoci: {len(saggi)}")
             stats_text.append(f"Numero US univoche: {len(us_list)}")
+
+            # Combinazioni Area+Saggio+US univoche
+            combinazioni = set()
+            for r in records:
+                sito = r.get('sito', '')
+                area = r.get('area', '')
+                saggio = r.get('saggio', '')
+                us = r.get('us', '')
+                if sito and area and saggio and us:
+                    combinazioni.add((sito, area, saggio, us))
+            stats_text.append(f"Numero combinazioni Sito+Area+Saggio+US univoche: {len(combinazioni)}")
             stats_text.append("")
 
             # === STATISTICHE NUMERICHE GENERALI ===
@@ -593,105 +609,201 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Massimo: {max(misure_values):.2f} mm")
             stats_text.append("")
 
-            # === STATISTICHE PER AREA ===
-            if aree and len(aree) > 0:
-                stats_text.append("📍 STATISTICHE PER AREA")
-                stats_text.append("-" * 100)
+            # === STATISTICHE PER SITO ===
+            if siti and len(siti) > 0:
+                stats_text.append("🏛 STATISTICHE PER SITO")
+                stats_text.append("=" * 100)
 
-                for area in sorted(aree):
-                    area_records = [r for r in records if r.get('area') == area]
-                    area_pct = (len(area_records) / len(records)) * 100
+                for sito in sorted(siti):
+                    sito_records = [r for r in records if r.get('sito') == sito]
+                    sito_pct = (len(sito_records) / len(records)) * 100
 
-                    stats_text.append(f"\n  Area: {area} - {len(area_records)} record ({area_pct:.1f}%)")
+                    stats_text.append(f"\n{'#' * 100}")
+                    stats_text.append(f"SITO: {sito}")
+                    stats_text.append(f"{'#' * 100}")
+                    stats_text.append(f"Totale record: {len(sito_records)} ({sito_pct:.1f}% del totale generale)")
 
-                    # Specie più comuni per area
-                    area_species = {}
-                    for r in area_records:
+                    # Aree, saggi, US nel sito
+                    sito_aree = set(r.get('area', '') for r in sito_records if r.get('area'))
+                    sito_saggi = set(r.get('saggio', '') for r in sito_records if r.get('saggio'))
+                    sito_us = set(r.get('us', '') for r in sito_records if r.get('us'))
+
+                    stats_text.append(f"Numero aree: {len(sito_aree)}")
+                    stats_text.append(f"Numero saggi: {len(sito_saggi)}")
+                    stats_text.append(f"Numero US: {len(sito_us)}")
+
+                    # Specie principali nel sito
+                    sito_species = {}
+                    for r in sito_records:
                         sp = r.get('specie', '')
                         if sp:
-                            area_species[sp] = area_species.get(sp, 0) + 1
+                            sito_species[sp] = sito_species.get(sp, 0) + 1
 
-                    if area_species:
-                        top_species = sorted(area_species.items(), key=lambda x: x[1], reverse=True)[:3]
-                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+                    if sito_species:
+                        top_species = sorted(sito_species.items(), key=lambda x: x[1], reverse=True)[:5]
+                        stats_text.append(f"\nSpecie principali:")
+                        for sp, cnt in top_species:
+                            sp_pct = (cnt / len(sito_records)) * 100
+                            stats_text.append(f"  - {sp}: {cnt} record ({sp_pct:.1f}%)")
 
-                    # NMI per area
-                    area_nmi = [int(r['numero_minimo_individui']) for r in area_records
+                    # NMI totale del sito
+                    sito_nmi = [int(r['numero_minimo_individui']) for r in sito_records
                                if r.get('numero_minimo_individui') not in (None, '', 0)]
-                    if area_nmi:
-                        stats_text.append(f"    NMI totale: {sum(area_nmi)}, Media: {sum(area_nmi)/len(area_nmi):.1f}")
+                    if sito_nmi:
+                        stats_text.append(f"\nNMI totale sito: {sum(sito_nmi)}")
+                        stats_text.append(f"NMI medio: {sum(sito_nmi)/len(sito_nmi):.1f}")
+                        stats_text.append(f"NMI min: {min(sito_nmi)}, max: {max(sito_nmi)}")
 
-                stats_text.append("")
+                    # === STATISTICHE PER AREA (all'interno del sito) ===
+                    if sito_aree and len(sito_aree) > 0:
+                        stats_text.append(f"\n{'-' * 100}")
+                        stats_text.append(f"📍 STATISTICHE PER AREA (Sito: {sito})")
+                        stats_text.append(f"{'-' * 100}")
 
-            # === STATISTICHE PER SAGGIO ===
-            if saggi and len(saggi) > 0:
-                stats_text.append("🔬 STATISTICHE PER SAGGIO")
-                stats_text.append("-" * 100)
+                        for area in sorted(sito_aree):
+                            area_records = [r for r in sito_records if r.get('area') == area]
+                            area_pct_sito = (len(area_records) / len(sito_records)) * 100
+                            area_pct_totale = (len(area_records) / len(records)) * 100
 
-                for saggio in sorted(saggi):
-                    saggio_records = [r for r in records if r.get('saggio') == saggio]
-                    saggio_pct = (len(saggio_records) / len(records)) * 100
+                            stats_text.append(f"\n  Area: {area}")
+                            stats_text.append(f"    Record: {len(area_records)} ({area_pct_sito:.1f}% del sito, {area_pct_totale:.1f}% del totale)")
 
-                    stats_text.append(f"\n  Saggio: {saggio} - {len(saggio_records)} record ({saggio_pct:.1f}%)")
+                            # Specie per area
+                            area_species = {}
+                            for r in area_records:
+                                sp = r.get('specie', '')
+                                if sp:
+                                    area_species[sp] = area_species.get(sp, 0) + 1
 
-                    # Specie più comuni per saggio
-                    saggio_species = {}
-                    for r in saggio_records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            saggio_species[sp] = saggio_species.get(sp, 0) + 1
+                            if area_species:
+                                top_species = sorted(area_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
 
-                    if saggio_species:
-                        top_species = sorted(saggio_species.items(), key=lambda x: x[1], reverse=True)[:3]
-                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+                            # NMI per area
+                            area_nmi = [int(r['numero_minimo_individui']) for r in area_records
+                                       if r.get('numero_minimo_individui') not in (None, '', 0)]
+                            if area_nmi:
+                                stats_text.append(f"    NMI totale: {sum(area_nmi)}, Media: {sum(area_nmi)/len(area_nmi):.1f}")
 
-                    # NMI per saggio
-                    saggio_nmi = [int(r['numero_minimo_individui']) for r in saggio_records
-                                 if r.get('numero_minimo_individui') not in (None, '', 0)]
-                    if saggio_nmi:
-                        stats_text.append(f"    NMI totale: {sum(saggio_nmi)}, Media: {sum(saggio_nmi)/len(saggio_nmi):.1f}")
+                    # === STATISTICHE PER SAGGIO (all'interno del sito) ===
+                    if sito_saggi and len(sito_saggi) > 0:
+                        stats_text.append(f"\n{'-' * 100}")
+                        stats_text.append(f"🔬 STATISTICHE PER SAGGIO (Sito: {sito})")
+                        stats_text.append(f"{'-' * 100}")
 
-                stats_text.append("")
+                        for saggio in sorted(sito_saggi):
+                            saggio_records = [r for r in sito_records if r.get('saggio') == saggio]
+                            saggio_pct_sito = (len(saggio_records) / len(sito_records)) * 100
+                            saggio_pct_totale = (len(saggio_records) / len(records)) * 100
 
-            # === STATISTICHE PER US ===
-            if us_list and len(us_list) > 0:
-                stats_text.append("🏛 STATISTICHE PER US (Top 10 per numero di record)")
-                stats_text.append("-" * 100)
+                            stats_text.append(f"\n  Saggio: {saggio}")
+                            stats_text.append(f"    Record: {len(saggio_records)} ({saggio_pct_sito:.1f}% del sito, {saggio_pct_totale:.1f}% del totale)")
 
-                us_counts = {}
-                for r in records:
-                    us = r.get('us', '')
-                    if us:
-                        if us not in us_counts:
-                            us_counts[us] = []
-                        us_counts[us].append(r)
+                            # Specie per saggio
+                            saggio_species = {}
+                            for r in saggio_records:
+                                sp = r.get('specie', '')
+                                if sp:
+                                    saggio_species[sp] = saggio_species.get(sp, 0) + 1
 
-                # Ordina per numero di record
-                sorted_us = sorted(us_counts.items(), key=lambda x: len(x[1]), reverse=True)[:10]
+                            if saggio_species:
+                                top_species = sorted(saggio_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
 
-                for us, us_records in sorted_us:
-                    us_pct = (len(us_records) / len(records)) * 100
+                            # NMI per saggio
+                            saggio_nmi = [int(r['numero_minimo_individui']) for r in saggio_records
+                                         if r.get('numero_minimo_individui') not in (None, '', 0)]
+                            if saggio_nmi:
+                                stats_text.append(f"    NMI totale: {sum(saggio_nmi)}, Media: {sum(saggio_nmi)/len(saggio_nmi):.1f}")
 
-                    stats_text.append(f"\n  US: {us} - {len(us_records)} record ({us_pct:.1f}%)")
+                    # === STATISTICHE PER US (all'interno del sito) ===
+                    if sito_us and len(sito_us) > 0:
+                        stats_text.append(f"\n{'-' * 100}")
+                        stats_text.append(f"🏛 STATISTICHE PER US (Sito: {sito}, Top 10)")
+                        stats_text.append(f"{'-' * 100}")
 
-                    # Specie più comuni per US
-                    us_species = {}
-                    for r in us_records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            us_species[sp] = us_species.get(sp, 0) + 1
+                        # Conta record per US
+                        us_counts = {}
+                        for r in sito_records:
+                            us = r.get('us', '')
+                            if us:
+                                if us not in us_counts:
+                                    us_counts[us] = []
+                                us_counts[us].append(r)
 
-                    if us_species:
-                        top_species = sorted(us_species.items(), key=lambda x: x[1], reverse=True)[:3]
-                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+                        # Ordina e prendi top 10
+                        sorted_us = sorted(us_counts.items(), key=lambda x: len(x[1]), reverse=True)[:10]
 
-                    # NMI per US
-                    us_nmi = [int(r['numero_minimo_individui']) for r in us_records
-                             if r.get('numero_minimo_individui') not in (None, '', 0)]
-                    if us_nmi:
-                        stats_text.append(f"    NMI totale: {sum(us_nmi)}, Media: {sum(us_nmi)/len(us_nmi):.1f}")
+                        for us, us_records in sorted_us:
+                            us_pct_sito = (len(us_records) / len(sito_records)) * 100
+                            us_pct_totale = (len(us_records) / len(records)) * 100
 
-                stats_text.append("")
+                            stats_text.append(f"\n  US: {us}")
+                            stats_text.append(f"    Record: {len(us_records)} ({us_pct_sito:.1f}% del sito, {us_pct_totale:.1f}% del totale)")
+
+                            # Specie per US
+                            us_species = {}
+                            for r in us_records:
+                                sp = r.get('specie', '')
+                                if sp:
+                                    us_species[sp] = us_species.get(sp, 0) + 1
+
+                            if us_species:
+                                top_species = sorted(us_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+
+                            # NMI per US
+                            us_nmi = [int(r['numero_minimo_individui']) for r in us_records
+                                     if r.get('numero_minimo_individui') not in (None, '', 0)]
+                            if us_nmi:
+                                stats_text.append(f"    NMI totale: {sum(us_nmi)}, Media: {sum(us_nmi)/len(us_nmi):.1f}")
+
+                    # === STATISTICHE DETTAGLIATE PER COMBINAZIONE AREA+SAGGIO+US ===
+                    stats_text.append(f"\n{'-' * 100}")
+                    stats_text.append(f"🔍 COMBINAZIONI AREA + SAGGIO + US (Sito: {sito})")
+                    stats_text.append(f"{'-' * 100}")
+
+                    # Raggruppa per combinazione
+                    combinazioni_sito = {}
+                    for r in sito_records:
+                        area = r.get('area', '')
+                        saggio = r.get('saggio', '')
+                        us = r.get('us', '')
+                        if area and saggio and us:
+                            key = (area, saggio, us)
+                            if key not in combinazioni_sito:
+                                combinazioni_sito[key] = []
+                            combinazioni_sito[key].append(r)
+
+                    if combinazioni_sito:
+                        # Ordina per numero di record
+                        sorted_comb = sorted(combinazioni_sito.items(), key=lambda x: len(x[1]), reverse=True)
+
+                        for (area, saggio, us), comb_records in sorted_comb:
+                            comb_pct_sito = (len(comb_records) / len(sito_records)) * 100
+                            comb_pct_totale = (len(comb_records) / len(records)) * 100
+
+                            stats_text.append(f"\n  Area {area} - Saggio {saggio} - US {us}: {len(comb_records)} record")
+                            stats_text.append(f"    {comb_pct_sito:.1f}% del sito | {comb_pct_totale:.1f}% del totale generale")
+
+                            # Specie per combinazione
+                            comb_species = {}
+                            for r in comb_records:
+                                sp = r.get('specie', '')
+                                if sp:
+                                    comb_species[sp] = comb_species.get(sp, 0) + 1
+
+                            if comb_species:
+                                top_species = sorted(comb_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    Specie: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+
+                            # NMI per combinazione
+                            comb_nmi = [int(r['numero_minimo_individui']) for r in comb_records
+                                       if r.get('numero_minimo_individui') not in (None, '', 0)]
+                            if comb_nmi:
+                                stats_text.append(f"    NMI totale: {sum(comb_nmi)}, Media: {sum(comb_nmi)/len(comb_nmi):.1f}")
+
+                stats_text.append(f"\n{'=' * 100}\n")
 
             # === DISTRIBUZIONE PER CATEGORIE ===
             stats_text.append("📊 DISTRIBUZIONE PER CATEGORIE - RIEPILOGO GENERALE")
@@ -768,6 +880,46 @@ class FaunaManager(QWidget):
         summary.append(f"L'analisi del dataset faunistico comprende {len(records)} record archeologici ")
         summary.append(f"distribuiti su {len(siti)} siti, {len(aree)} aree, {len(saggi)} saggi e {len(us_list)} unità stratigrafiche.")
         summary.append("")
+
+        # Analisi per sito
+        if len(siti) > 0:
+            summary.append("DISTRIBUZIONE PER SITO:")
+            site_records = {}
+            for r in records:
+                site = r.get('sito', '')
+                if site:
+                    if site not in site_records:
+                        site_records[site] = []
+                    site_records[site].append(r)
+
+            # Sito dominante
+            sorted_sites = sorted(site_records.items(), key=lambda x: len(x[1]), reverse=True)
+            dominant_site = sorted_sites[0]
+            pct = (len(dominant_site[1]) / len(records)) * 100
+
+            summary.append(f"Il sito più rappresentato è '{dominant_site[0]}' con {len(dominant_site[1])} record ({pct:.1f}% del totale). ")
+
+            if len(siti) > 1:
+                summary.append(f"Gli altri {len(siti) - 1} siti contribuiscono con il restante {100 - pct:.1f}% dei dati, ")
+                summary.append("permettendo un'analisi comparativa tra diverse località archeologiche. ")
+
+                # Specie dominanti per il sito principale
+                site_species = {}
+                for r in dominant_site[1]:
+                    sp = r.get('specie', '')
+                    if sp:
+                        site_species[sp] = site_species.get(sp, 0) + 1
+
+                if site_species:
+                    top_sp = max(site_species.items(), key=lambda x: x[1])
+                    summary.append(f"Nel sito '{dominant_site[0]}', la specie predominante è {top_sp[0]} ")
+                    summary.append(f"con {top_sp[1]} occorrenze.")
+
+            summary.append("")
+            summary.append("Le statistiche sono state organizzate gerarchicamente per sito, consentendo di analizzare ")
+            summary.append("la distribuzione spaziale dei resti faunistici a livello di aree, saggi e unità stratigrafiche ")
+            summary.append("all'interno di ciascun sito, oltre alle combinazioni specifiche Area+Saggio+US.")
+            summary.append("")
 
         # Analisi specie
         species_count = {}
@@ -1197,11 +1349,13 @@ class FaunaManager(QWidget):
         if id_us:
             us_data = self.db.get_us_by_id(id_us)
             if us_data:
+                self.txt_us.setText(us_data.get('us', ''))
                 self.txt_sito.setText(us_data.get('sito', ''))
                 self.txt_area.setText(us_data.get('area', ''))
                 self.txt_saggio.setText(us_data.get('saggio', ''))
                 self.txt_datazione_us.setText(us_data.get('datazione', ''))
         else:
+            self.txt_us.clear()
             self.txt_sito.clear()
             self.txt_area.clear()
             self.txt_saggio.clear()
@@ -1239,6 +1393,9 @@ class FaunaManager(QWidget):
                 if self.combo_us.itemData(i) == id_us:
                     self.combo_us.setCurrentIndex(i)
                     break
+
+        # Popola anche il campo Nome US direttamente dal record (backup)
+        self.txt_us.setText(record.get('us', ''))
 
         # Dati deposizionali
         self.txt_responsabile.setText(record.get('responsabile_scheda', ''))
