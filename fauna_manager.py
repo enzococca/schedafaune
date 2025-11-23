@@ -506,58 +506,73 @@ class FaunaManager(QWidget):
         widget = QWidget()
         layout = QVBoxLayout(widget)
 
-        # Pulsante per aggiornare le statistiche
+        # Toolbar con pulsanti per aggiornare ed esportare
+        toolbar_layout = QHBoxLayout()
+
         btn_refresh = QPushButton("🔄 Aggiorna Statistiche")
         btn_refresh.clicked.connect(self.update_statistics)
-        layout.addWidget(btn_refresh)
+        toolbar_layout.addWidget(btn_refresh)
+
+        btn_export_excel = QPushButton("📊 Esporta Excel")
+        btn_export_excel.clicked.connect(self.export_statistics_excel)
+        toolbar_layout.addWidget(btn_export_excel)
+
+        btn_export_pdf = QPushButton("📄 Esporta PDF")
+        btn_export_pdf.clicked.connect(self.export_statistics_pdf)
+        toolbar_layout.addWidget(btn_export_pdf)
+
+        toolbar_layout.addStretch()
+        layout.addLayout(toolbar_layout)
 
         # Area di testo per le statistiche
         self.txt_statistiche = QTextEdit()
         self.txt_statistiche.setReadOnly(True)
-        self.txt_statistiche.setFont(QFont("Courier", 10))
+        self.txt_statistiche.setFont(QFont("Courier", 9))
         layout.addWidget(self.txt_statistiche)
+
+        # Variabile per memorizzare le statistiche correnti
+        self.current_stats_text = []
+        self.current_stats_data = {}
 
         return widget
 
     def update_statistics(self):
-        """Calcola e visualizza le statistiche riepilogative"""
+        """Calcola e visualizza le statistiche riepilogative estese"""
         try:
-            # Recupera tutti i record
             records = self.db.get_all_fauna_records()
 
             if not records:
                 self.txt_statistiche.setText("Nessun record presente nel database.")
                 return
 
-            # Prepara il testo delle statistiche
             stats_text = []
-            stats_text.append("=" * 80)
+            stats_text.append("=" * 100)
             stats_text.append("STATISTICHE RIEPILOGATIVE - SCHEDE FAUNA")
-            stats_text.append("=" * 80)
+            stats_text.append("=" * 100)
             stats_text.append("")
 
             # === STATISTICHE GENERALI ===
             stats_text.append("📋 STATISTICHE GENERALI")
-            stats_text.append("-" * 80)
+            stats_text.append("-" * 100)
             stats_text.append(f"Numero totale record: {len(records)}")
 
-            # Conteggio siti univoci
             siti = set(r.get('sito', '') for r in records if r.get('sito'))
+            aree = set(r.get('area', '') for r in records if r.get('area'))
+            saggi = set(r.get('saggio', '') for r in records if r.get('saggio'))
+            us_list = set(r.get('us', '') for r in records if r.get('us'))
+
             stats_text.append(f"Numero siti univoci: {len(siti)}")
             if siti:
                 stats_text.append(f"  Siti: {', '.join(sorted(siti))}")
-
-            # Conteggio US univoche
-            us_list = set(r.get('us', '') for r in records if r.get('us'))
+            stats_text.append(f"Numero aree univoche: {len(aree)}")
+            stats_text.append(f"Numero saggi univoci: {len(saggi)}")
             stats_text.append(f"Numero US univoche: {len(us_list)}")
-
             stats_text.append("")
 
-            # === STATISTICHE NUMERICHE ===
-            stats_text.append("🔢 STATISTICHE NUMERICHE")
-            stats_text.append("-" * 80)
+            # === STATISTICHE NUMERICHE GENERALI ===
+            stats_text.append("🔢 STATISTICHE NUMERICHE - RIEPILOGO GENERALE")
+            stats_text.append("-" * 100)
 
-            # NMI (Numero Minimo Individui)
             nmi_values = [int(r['numero_minimo_individui']) for r in records
                          if r.get('numero_minimo_individui') not in (None, '', 0)]
             if nmi_values:
@@ -567,10 +582,7 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Minimo: {min(nmi_values)}")
                 stats_text.append(f"  Massimo: {max(nmi_values)}")
                 stats_text.append(f"  Somma totale: {sum(nmi_values)}")
-            else:
-                stats_text.append("Numero Minimo Individui (NMI): Nessun dato")
 
-            # Misure Ossa
             misure_values = [float(r['misure_ossa']) for r in records
                             if r.get('misure_ossa') not in (None, '', 0)]
             if misure_values:
@@ -579,17 +591,113 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Media: {sum(misure_values)/len(misure_values):.2f} mm")
                 stats_text.append(f"  Minimo: {min(misure_values):.2f} mm")
                 stats_text.append(f"  Massimo: {max(misure_values):.2f} mm")
-            else:
-                stats_text.append("\nMisure Ossa: Nessun dato")
-
             stats_text.append("")
 
-            # === STATISTICHE CATEGORIALI ===
-            stats_text.append("📊 DISTRIBUZIONE PER CATEGORIE")
-            stats_text.append("-" * 80)
+            # === STATISTICHE PER AREA ===
+            if aree and len(aree) > 0:
+                stats_text.append("📍 STATISTICHE PER AREA")
+                stats_text.append("-" * 100)
 
-            # Funzione helper per contare valori
-            def count_values(field_name, label):
+                for area in sorted(aree):
+                    area_records = [r for r in records if r.get('area') == area]
+                    area_pct = (len(area_records) / len(records)) * 100
+
+                    stats_text.append(f"\n  Area: {area} - {len(area_records)} record ({area_pct:.1f}%)")
+
+                    # Specie più comuni per area
+                    area_species = {}
+                    for r in area_records:
+                        sp = r.get('specie', '')
+                        if sp:
+                            area_species[sp] = area_species.get(sp, 0) + 1
+
+                    if area_species:
+                        top_species = sorted(area_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+
+                    # NMI per area
+                    area_nmi = [int(r['numero_minimo_individui']) for r in area_records
+                               if r.get('numero_minimo_individui') not in (None, '', 0)]
+                    if area_nmi:
+                        stats_text.append(f"    NMI totale: {sum(area_nmi)}, Media: {sum(area_nmi)/len(area_nmi):.1f}")
+
+                stats_text.append("")
+
+            # === STATISTICHE PER SAGGIO ===
+            if saggi and len(saggi) > 0:
+                stats_text.append("🔬 STATISTICHE PER SAGGIO")
+                stats_text.append("-" * 100)
+
+                for saggio in sorted(saggi):
+                    saggio_records = [r for r in records if r.get('saggio') == saggio]
+                    saggio_pct = (len(saggio_records) / len(records)) * 100
+
+                    stats_text.append(f"\n  Saggio: {saggio} - {len(saggio_records)} record ({saggio_pct:.1f}%)")
+
+                    # Specie più comuni per saggio
+                    saggio_species = {}
+                    for r in saggio_records:
+                        sp = r.get('specie', '')
+                        if sp:
+                            saggio_species[sp] = saggio_species.get(sp, 0) + 1
+
+                    if saggio_species:
+                        top_species = sorted(saggio_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+
+                    # NMI per saggio
+                    saggio_nmi = [int(r['numero_minimo_individui']) for r in saggio_records
+                                 if r.get('numero_minimo_individui') not in (None, '', 0)]
+                    if saggio_nmi:
+                        stats_text.append(f"    NMI totale: {sum(saggio_nmi)}, Media: {sum(saggio_nmi)/len(saggio_nmi):.1f}")
+
+                stats_text.append("")
+
+            # === STATISTICHE PER US ===
+            if us_list and len(us_list) > 0:
+                stats_text.append("🏛 STATISTICHE PER US (Top 10 per numero di record)")
+                stats_text.append("-" * 100)
+
+                us_counts = {}
+                for r in records:
+                    us = r.get('us', '')
+                    if us:
+                        if us not in us_counts:
+                            us_counts[us] = []
+                        us_counts[us].append(r)
+
+                # Ordina per numero di record
+                sorted_us = sorted(us_counts.items(), key=lambda x: len(x[1]), reverse=True)[:10]
+
+                for us, us_records in sorted_us:
+                    us_pct = (len(us_records) / len(records)) * 100
+
+                    stats_text.append(f"\n  US: {us} - {len(us_records)} record ({us_pct:.1f}%)")
+
+                    # Specie più comuni per US
+                    us_species = {}
+                    for r in us_records:
+                        sp = r.get('specie', '')
+                        if sp:
+                            us_species[sp] = us_species.get(sp, 0) + 1
+
+                    if us_species:
+                        top_species = sorted(us_species.items(), key=lambda x: x[1], reverse=True)[:3]
+                        stats_text.append(f"    Specie principali: {', '.join([f'{sp} ({cnt})' for sp, cnt in top_species])}")
+
+                    # NMI per US
+                    us_nmi = [int(r['numero_minimo_individui']) for r in us_records
+                             if r.get('numero_minimo_individui') not in (None, '', 0)]
+                    if us_nmi:
+                        stats_text.append(f"    NMI totale: {sum(us_nmi)}, Media: {sum(us_nmi)/len(us_nmi):.1f}")
+
+                stats_text.append("")
+
+            # === DISTRIBUZIONE PER CATEGORIE ===
+            stats_text.append("📊 DISTRIBUZIONE PER CATEGORIE - RIEPILOGO GENERALE")
+            stats_text.append("-" * 100)
+
+            def count_values(field_name, label, top_n=10):
                 values_count = {}
                 for r in records:
                     val = r.get(field_name, '')
@@ -598,48 +706,396 @@ class FaunaManager(QWidget):
 
                 if values_count:
                     stats_text.append(f"\n{label}:")
-                    # Ordina per frequenza decrescente
                     sorted_items = sorted(values_count.items(), key=lambda x: x[1], reverse=True)
-                    for val, count in sorted_items[:10]:  # Top 10
+                    for val, count in sorted_items[:top_n]:
                         percentage = (count / len(records)) * 100
                         stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
                 else:
                     stats_text.append(f"\n{label}: Nessun dato")
 
-            # Specie
             count_values('specie', 'Specie (Top 10)')
-
-            # Contesto
             count_values('contesto', 'Contesto')
-
-            # Metodologia Recupero
             count_values('metodologia_recupero', 'Metodologia di Recupero')
-
-            # Stato di Conservazione
             count_values('stato_conservazione', 'Stato di Conservazione')
-
-            # Connessione Anatomica
             count_values('resti_connessione_anatomica', 'Resti in Connessione Anatomica')
-
-            # Tipologia Accumulo
             count_values('tipologia_accumulo', 'Tipologia di Accumulo')
-
-            # Tracce di Combustione
             count_values('tracce_combustione', 'Tracce di Combustione')
-
-            # Stato di Frammentazione
             count_values('stato_frammentazione', 'Stato di Frammentazione')
 
             stats_text.append("")
-            stats_text.append("=" * 80)
-            stats_text.append(f"Report generato il: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-            stats_text.append("=" * 80)
 
-            # Visualizza le statistiche
+            # === SOMMARIO DESCRITTIVO ===
+            stats_text.append("=" * 100)
+            stats_text.append("📝 SOMMARIO DESCRITTIVO")
+            stats_text.append("=" * 100)
+            stats_text.append("")
+
+            summary = self._generate_descriptive_summary(records, nmi_values, misure_values,
+                                                        siti, aree, saggi, us_list)
+            stats_text.extend(summary)
+
+            stats_text.append("")
+            stats_text.append("=" * 100)
+            stats_text.append(f"Report generato il: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+            stats_text.append("=" * 100)
+
+            # Salva per esportazione
+            self.current_stats_text = stats_text
+            self.current_stats_data = {
+                'records': records,
+                'total': len(records),
+                'siti': siti,
+                'aree': aree,
+                'saggi': saggi,
+                'us': us_list,
+                'nmi_values': nmi_values,
+                'misure_values': misure_values
+            }
+
+            # Visualizza
             self.txt_statistiche.setText("\n".join(stats_text))
 
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore nel calcolo delle statistiche:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def _generate_descriptive_summary(self, records, nmi_values, misure_values, siti, aree, saggi, us_list):
+        """Genera un sommario descrittivo discorsivo delle statistiche"""
+        summary = []
+
+        # Introduzione
+        summary.append(f"L'analisi del dataset faunistico comprende {len(records)} record archeologici ")
+        summary.append(f"distribuiti su {len(siti)} siti, {len(aree)} aree, {len(saggi)} saggi e {len(us_list)} unità stratigrafiche.")
+        summary.append("")
+
+        # Analisi specie
+        species_count = {}
+        for r in records:
+            sp = r.get('specie', '')
+            if sp:
+                species_count[sp] = species_count.get(sp, 0) + 1
+
+        if species_count:
+            top_3_species = sorted(species_count.items(), key=lambda x: x[1], reverse=True)[:3]
+            summary.append("ANALISI DELLE SPECIE:")
+            summary.append(f"Sono state identificate {len(species_count)} specie diverse. Le specie predominanti sono:")
+
+            for sp, count in top_3_species:
+                pct = (count / len(records)) * 100
+                summary.append(f"  - {sp}: presente in {count} record ({pct:.1f}% del totale)")
+
+            summary.append("")
+
+        # Analisi NMI
+        if nmi_values:
+            total_nmi = sum(nmi_values)
+            avg_nmi = total_nmi / len(nmi_values)
+            summary.append("NUMERO MINIMO DI INDIVIDUI (NMI):")
+            summary.append(f"Il numero minimo totale di individui è {total_nmi}, con una media di {avg_nmi:.1f} individui ")
+            summary.append(f"per record. Il valore minimo registrato è {min(nmi_values)}, mentre il massimo è {max(nmi_values)}.")
+            summary.append("")
+
+        # Analisi contesti
+        context_count = {}
+        for r in records:
+            ctx = r.get('contesto', '')
+            if ctx:
+                context_count[ctx] = context_count.get(ctx, 0) + 1
+
+        if context_count:
+            dominant_context = max(context_count.items(), key=lambda x: x[1])
+            pct = (dominant_context[1] / len(records)) * 100
+            summary.append("CONTESTI ARCHEOLOGICI:")
+            summary.append(f"Il contesto prevalente è '{dominant_context[0]}' con {dominant_context[1]} occorrenze ")
+            summary.append(f"({pct:.1f}% del totale). ")
+
+            if len(context_count) > 1:
+                summary.append(f"Sono stati identificati {len(context_count)} diversi tipi di contesto, indicando ")
+                summary.append("una varietà di situazioni deposizionali.")
+
+            summary.append("")
+
+        # Analisi stato di conservazione
+        conservation_count = {}
+        for r in records:
+            cons = r.get('stato_conservazione', '')
+            if cons:
+                conservation_count[cons] = conservation_count.get(cons, 0) + 1
+
+        if conservation_count:
+            summary.append("STATO DI CONSERVAZIONE:")
+
+            # Calcola media stato conservazione (considerando valori 0-5)
+            try:
+                numeric_conservation = [int(k) for k in conservation_count.keys() if k.isdigit()]
+                if numeric_conservation:
+                    weighted_sum = sum(int(k) * conservation_count[k] for k in conservation_count.keys() if k.isdigit())
+                    total_with_conservation = sum(conservation_count[k] for k in conservation_count.keys() if k.isdigit())
+                    avg_conservation = weighted_sum / total_with_conservation if total_with_conservation > 0 else 0
+
+                    if avg_conservation < 2:
+                        quality_desc = "generalmente scarso"
+                    elif avg_conservation < 3.5:
+                        quality_desc = "mediocre"
+                    else:
+                        quality_desc = "buono"
+
+                    summary.append(f"Lo stato di conservazione dei reperti è {quality_desc}, con un valore medio di {avg_conservation:.1f} ")
+                    summary.append("sulla scala 0-5 (dove 0=pessimo, 5=ottimo).")
+            except:
+                pass
+
+            summary.append("")
+
+        # Analisi tafonomica
+        combustion_count = {}
+        for r in records:
+            comb = r.get('tracce_combustione', '')
+            if comb:
+                combustion_count[comb] = combustion_count.get(comb, 0) + 1
+
+        if combustion_count:
+            records_with_combustion = sum(v for k, v in combustion_count.items() if k.lower() not in ['assente', 'no'])
+            pct_combustion = (records_with_combustion / len(records)) * 100
+
+            summary.append("ANALISI TAFONOMICA:")
+            summary.append(f"Tracce di combustione sono presenti in {records_with_combustion} record ({pct_combustion:.1f}% del totale), ")
+
+            if pct_combustion > 50:
+                summary.append("suggerendo una significativa esposizione al fuoco dei resti faunistici.")
+            elif pct_combustion > 20:
+                summary.append("indicando una presenza moderata di fenomeni di combustione.")
+            else:
+                summary.append("indicando un'esposizione limitata al fuoco.")
+
+            summary.append("")
+
+        # Connessione anatomica
+        connection_count = {}
+        for r in records:
+            conn = r.get('resti_connessione_anatomica', '')
+            if conn:
+                connection_count[conn] = connection_count.get(conn, 0) + 1
+
+        if connection_count:
+            connected = connection_count.get('Si', 0) + connection_count.get('Parziale', 0)
+            pct_connected = (connected / len(records)) * 100
+
+            summary.append("CONNESSIONE ANATOMICA:")
+            summary.append(f"Resti in connessione anatomica (totale o parziale) sono stati riscontrati in {connected} record ")
+            summary.append(f"({pct_connected:.1f}% del totale), ")
+
+            if pct_connected > 40:
+                summary.append("suggerendo deposizioni primarie o una buona preservazione del contesto originale.")
+            elif pct_connected > 15:
+                summary.append("indicando una preservazione moderata del contesto deposizionale.")
+            else:
+                summary.append("suggerendo prevalentemente deposizioni secondarie o rimaneggiate.")
+
+            summary.append("")
+
+        # Conclusione
+        summary.append("CONCLUSIONI:")
+        summary.append("Il dataset rappresenta un campione significativo per l'analisi archeozoologica del sito. ")
+        summary.append("I dati raccolti permettono di ricostruire aspetti legati all'economia, all'alimentazione e ")
+        summary.append("alle pratiche cultuali delle popolazioni antiche che hanno abitato l'area.")
+
+        return summary
+
+    def export_statistics_excel(self):
+        """Esporta le statistiche in formato Excel (CSV)"""
+        if not self.current_stats_text:
+            QMessageBox.warning(self, "Attenzione", "Genera prima le statistiche con 'Aggiorna Statistiche'")
+            return
+
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+            import csv
+
+            # Dialog per scegliere dove salvare
+            default_name = f"statistiche_fauna_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Salva statistiche Excel",
+                default_name,
+                "File CSV (*.csv);;Tutti i file (*)"
+            )
+
+            if not file_path:
+                return
+
+            # Crea CSV con dati strutturati
+            with open(file_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+
+                # Intestazione
+                writer.writerow(['STATISTICHE FAUNA - EXPORT'])
+                writer.writerow(['Data generazione', datetime.now().strftime('%d/%m/%Y %H:%M:%S')])
+                writer.writerow([])
+
+                # Statistiche generali
+                writer.writerow(['STATISTICHE GENERALI'])
+                writer.writerow(['Totale record', self.current_stats_data.get('total', 0)])
+                writer.writerow(['Numero siti', len(self.current_stats_data.get('siti', []))])
+                writer.writerow(['Numero aree', len(self.current_stats_data.get('aree', []))])
+                writer.writerow(['Numero saggi', len(self.current_stats_data.get('saggi', []))])
+                writer.writerow(['Numero US', len(self.current_stats_data.get('us', []))])
+                writer.writerow([])
+
+                # NMI
+                nmi_vals = self.current_stats_data.get('nmi_values', [])
+                if nmi_vals:
+                    writer.writerow(['NUMERO MINIMO INDIVIDUI (NMI)'])
+                    writer.writerow(['Totale record con NMI', len(nmi_vals)])
+                    writer.writerow(['Media', f"{sum(nmi_vals)/len(nmi_vals):.1f}"])
+                    writer.writerow(['Minimo', min(nmi_vals)])
+                    writer.writerow(['Massimo', max(nmi_vals)])
+                    writer.writerow(['Somma totale', sum(nmi_vals)])
+                    writer.writerow([])
+
+                # Misure
+                mis_vals = self.current_stats_data.get('misure_values', [])
+                if mis_vals:
+                    writer.writerow(['MISURE OSSA (mm)'])
+                    writer.writerow(['Totale misurazioni', len(mis_vals)])
+                    writer.writerow(['Media', f"{sum(mis_vals)/len(mis_vals):.2f}"])
+                    writer.writerow(['Minimo', f"{min(mis_vals):.2f}"])
+                    writer.writerow(['Massimo', f"{max(mis_vals):.2f}"])
+                    writer.writerow([])
+
+                # Distribuzione specie
+                records = self.current_stats_data.get('records', [])
+                if records:
+                    species_count = {}
+                    for r in records:
+                        sp = r.get('specie', '')
+                        if sp:
+                            species_count[sp] = species_count.get(sp, 0) + 1
+
+                    if species_count:
+                        writer.writerow(['DISTRIBUZIONE SPECIE'])
+                        writer.writerow(['Specie', 'Conteggio', 'Percentuale'])
+                        sorted_species = sorted(species_count.items(), key=lambda x: x[1], reverse=True)
+                        for sp, count in sorted_species:
+                            pct = (count / len(records)) * 100
+                            writer.writerow([sp, count, f"{pct:.1f}%"])
+                        writer.writerow([])
+
+                # Report testuale completo
+                writer.writerow(['REPORT COMPLETO'])
+                for line in self.current_stats_text:
+                    writer.writerow([line])
+
+            QMessageBox.information(self, "Successo", f"Statistiche esportate in:\n{file_path}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nell'esportazione Excel:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def export_statistics_pdf(self):
+        """Esporta le statistiche in formato PDF"""
+        if not self.current_stats_text:
+            QMessageBox.warning(self, "Attenzione", "Genera prima le statistiche con 'Aggiorna Statistiche'")
+            return
+
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+
+            # Dialog per scegliere dove salvare
+            default_name = f"statistiche_fauna_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Salva statistiche PDF",
+                default_name,
+                "File PDF (*.pdf);;Tutti i file (*)"
+            )
+
+            if not file_path:
+                return
+
+            # Prova ad usare ReportLab
+            try:
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib import colors
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import cm
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+
+                # Crea PDF
+                doc = SimpleDocTemplate(file_path, pagesize=A4,
+                                       leftMargin=1.5*cm, rightMargin=1.5*cm,
+                                       topMargin=2*cm, bottomMargin=2*cm)
+
+                styles = getSampleStyleSheet()
+                story = []
+
+                # Titolo
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    textColor=colors.HexColor('#2c3e50'),
+                    spaceAfter=30,
+                    alignment=1  # Center
+                )
+
+                story.append(Paragraph("STATISTICHE RIEPILOGATIVE - SCHEDE FAUNA", title_style))
+                story.append(Spacer(1, 0.5*cm))
+
+                # Data generazione
+                date_style = ParagraphStyle(
+                    'DateStyle',
+                    parent=styles['Normal'],
+                    fontSize=10,
+                    textColor=colors.grey,
+                    alignment=1
+                )
+                story.append(Paragraph(f"Report generato il: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", date_style))
+                story.append(Spacer(1, 1*cm))
+
+                # Contenuto
+                mono_style = ParagraphStyle(
+                    'MonoStyle',
+                    parent=styles['Normal'],
+                    fontSize=8,
+                    fontName='Courier',
+                    leading=10
+                )
+
+                for line in self.current_stats_text:
+                    if line.strip():
+                        # Converti caratteri speciali
+                        line_clean = line.replace('📋', '[*]').replace('🔢', '[#]').replace('📊', '[%]')
+                        line_clean = line_clean.replace('📍', '[A]').replace('🔬', '[S]').replace('🏛', '[U]')
+                        line_clean = line_clean.replace('📝', '[T]')
+
+                        story.append(Paragraph(line_clean, mono_style))
+                    else:
+                        story.append(Spacer(1, 0.2*cm))
+
+                doc.build(story)
+
+                QMessageBox.information(self, "Successo", f"Statistiche esportate in:\n{file_path}")
+
+            except ImportError:
+                # Fallback: salva come file di testo con estensione PDF
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(self.current_stats_text))
+
+                QMessageBox.information(
+                    self,
+                    "Esportazione completata",
+                    f"Statistiche salvate in formato testo:\n{file_path}\n\n"
+                    "Nota: Installa 'reportlab' per esportare in formato PDF vero:\n"
+                    "pip install reportlab"
+                )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nell'esportazione PDF:\n{str(e)}")
             import traceback
             traceback.print_exc()
 
