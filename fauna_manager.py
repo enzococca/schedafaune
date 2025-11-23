@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QComboBox, QTextEdit, QDateEdit, QSpinBox, QDoubleSpinBox, QCheckBox,
     QPushButton, QToolBar, QMessageBox, QTableWidget, QTableWidgetItem,
     QDialog, QFormLayout, QDialogButtonBox, QHeaderView, QAction,
-    QGroupBox, QGridLayout, QSplitter
+    QGroupBox, QGridLayout, QSplitter, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QDate, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont
@@ -372,32 +372,38 @@ class FaunaManager(QWidget):
 
         form = QFormLayout()
 
+        # Configura i QTextEdit per espandersi e adattarsi al ridimensionamento
         self.txt_note_terreno = QTextEdit()
-        self.txt_note_terreno.setMaximumHeight(80)
+        self.txt_note_terreno.setMinimumHeight(60)
+        self.txt_note_terreno.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Note Terreno Giacitura:", self.txt_note_terreno)
 
         self.txt_campionature = QTextEdit()
-        self.txt_campionature.setMaximumHeight(80)
+        self.txt_campionature.setMinimumHeight(60)
+        self.txt_campionature.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Campionature Effettuate:", self.txt_campionature)
 
         self.txt_affidabilita = QTextEdit()
-        self.txt_affidabilita.setMaximumHeight(80)
+        self.txt_affidabilita.setMinimumHeight(60)
+        self.txt_affidabilita.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Affidabilità Stratigrafica:", self.txt_affidabilita)
 
         self.txt_classi_reperti = QTextEdit()
-        self.txt_classi_reperti.setMaximumHeight(80)
+        self.txt_classi_reperti.setMinimumHeight(60)
+        self.txt_classi_reperti.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Classi Reperti Associazione:", self.txt_classi_reperti)
 
         self.txt_osservazioni = QTextEdit()
-        self.txt_osservazioni.setMaximumHeight(100)
+        self.txt_osservazioni.setMinimumHeight(80)
+        self.txt_osservazioni.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Osservazioni:", self.txt_osservazioni)
 
         self.txt_interpretazione = QTextEdit()
-        self.txt_interpretazione.setMaximumHeight(100)
+        self.txt_interpretazione.setMinimumHeight(80)
+        self.txt_interpretazione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form.addRow("Interpretazione:", self.txt_interpretazione)
 
         layout.addLayout(form)
-        layout.addStretch()
 
         return widget
 
