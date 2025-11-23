@@ -280,88 +280,166 @@ class FaunaManager(QWidget):
         form_dep.addRow("Contesto:", self.combo_contesto)
 
         self.txt_desc_contesto = QTextEdit()
-        self.txt_desc_contesto.setMaximumHeight(100)
+        self.txt_desc_contesto.setMinimumHeight(80)
+        self.txt_desc_contesto.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         form_dep.addRow("Descrizione Contesto:", self.txt_desc_contesto)
 
         layout.addWidget(group_dep)
-        layout.addStretch()
 
         return widget
 
     def create_tab_archeozoologici(self) -> QWidget:
         """Crea il tab dei dati archeozoologici"""
         widget = QWidget()
-        layout = QFormLayout(widget)
+        layout = QVBoxLayout(widget)
 
+        # Usa QGridLayout per una distribuzione più equilibrata
+        grid = QGridLayout()
+        grid.setColumnStretch(1, 1)  # La colonna dei widget si espande
+
+        row = 0
+
+        # Connessione Anatomica
+        grid.addWidget(QLabel("Connessione Anatomica:"), row, 0)
         self.combo_connessione = QComboBox()
         self.combo_connessione.setEditable(True)
-        layout.addRow("Connessione Anatomica:", self.combo_connessione)
+        self.combo_connessione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_connessione, row, 1)
+        row += 1
 
+        # Tipologia Accumulo
+        grid.addWidget(QLabel("Tipologia Accumulo:"), row, 0)
         self.combo_tipologia_accumulo = QComboBox()
         self.combo_tipologia_accumulo.setEditable(True)
-        layout.addRow("Tipologia Accumulo:", self.combo_tipologia_accumulo)
+        self.combo_tipologia_accumulo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_tipologia_accumulo, row, 1)
+        row += 1
 
+        # Deposizione
+        grid.addWidget(QLabel("Deposizione:"), row, 0)
         self.combo_deposizione = QComboBox()
         self.combo_deposizione.setEditable(True)
-        layout.addRow("Deposizione:", self.combo_deposizione)
+        self.combo_deposizione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_deposizione, row, 1)
+        row += 1
 
+        # Numero Stimato Resti
+        grid.addWidget(QLabel("Numero Stimato Resti:"), row, 0)
         self.combo_num_stimato = QComboBox()
         self.combo_num_stimato.setEditable(True)
-        layout.addRow("Numero Stimato Resti:", self.combo_num_stimato)
+        self.combo_num_stimato.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_num_stimato, row, 1)
+        row += 1
 
-        self.spin_nmi = QDoubleSpinBox()
-        self.spin_nmi.setDecimals(2)
-        self.spin_nmi.setMaximum(9999.99)
-        layout.addRow("NMI:", self.spin_nmi)
+        # NMI - Cambiato da QDoubleSpinBox a QSpinBox (solo interi)
+        grid.addWidget(QLabel("NMI (Numero Minimo Individui):"), row, 0)
+        self.spin_nmi = QSpinBox()
+        self.spin_nmi.setMaximum(9999)
+        self.spin_nmi.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.spin_nmi, row, 1)
+        row += 1
 
+        # Specie
+        grid.addWidget(QLabel("Specie:"), row, 0)
         self.combo_specie = QComboBox()
         self.combo_specie.setEditable(True)
-        layout.addRow("Specie:", self.combo_specie)
+        self.combo_specie.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_specie, row, 1)
+        row += 1
 
+        # Parti Scheletriche
+        grid.addWidget(QLabel("Parti Scheletriche:"), row, 0)
         self.combo_parti_scheletriche = QComboBox()
         self.combo_parti_scheletriche.setEditable(True)
-        layout.addRow("Parti Scheletriche:", self.combo_parti_scheletriche)
+        self.combo_parti_scheletriche.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_parti_scheletriche, row, 1)
+        row += 1
 
+        # Misure Ossa (rimane float)
+        grid.addWidget(QLabel("Misure Ossa (mm):"), row, 0)
         self.spin_misure = QDoubleSpinBox()
         self.spin_misure.setDecimals(2)
         self.spin_misure.setMaximum(9999.99)
-        layout.addRow("Misure Ossa (mm):", self.spin_misure)
+        self.spin_misure.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.spin_misure, row, 1)
+
+        layout.addLayout(grid)
+        layout.addStretch()
 
         return widget
 
     def create_tab_tafonomici(self) -> QWidget:
         """Crea il tab dei dati tafonomici"""
         widget = QWidget()
-        layout = QFormLayout(widget)
+        layout = QVBoxLayout(widget)
 
+        # Usa QGridLayout per una distribuzione più equilibrata
+        grid = QGridLayout()
+        grid.setColumnStretch(1, 1)  # La colonna dei widget si espande
+
+        row = 0
+
+        # Stato Frammentazione
+        grid.addWidget(QLabel("Stato Frammentazione:"), row, 0)
         self.combo_frammentazione = QComboBox()
         self.combo_frammentazione.setEditable(True)
-        layout.addRow("Stato Frammentazione:", self.combo_frammentazione)
+        self.combo_frammentazione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_frammentazione, row, 1)
+        row += 1
 
+        # Tracce Combustione
+        grid.addWidget(QLabel("Tracce Combustione:"), row, 0)
         self.combo_tracce_combustione = QComboBox()
         self.combo_tracce_combustione.setEditable(True)
-        layout.addRow("Tracce Combustione:", self.combo_tracce_combustione)
+        self.combo_tracce_combustione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_tracce_combustione, row, 1)
+        row += 1
 
+        # Combustione su Altri Materiali
+        grid.addWidget(QLabel("Combustione su Altri Materiali US:"), row, 0)
         self.check_combustione_altri = QCheckBox()
-        layout.addRow("Combustione su Altri Materiali US:", self.check_combustione_altri)
+        grid.addWidget(self.check_combustione_altri, row, 1)
+        row += 1
 
+        # Tipo Combustione
+        grid.addWidget(QLabel("Tipo Combustione:"), row, 0)
         self.combo_tipo_combustione = QComboBox()
         self.combo_tipo_combustione.setEditable(True)
-        layout.addRow("Tipo Combustione:", self.combo_tipo_combustione)
+        self.combo_tipo_combustione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_tipo_combustione, row, 1)
+        row += 1
 
+        # Segni Tafonomici Evidenti
+        grid.addWidget(QLabel("Segni Tafonomici Evidenti:"), row, 0)
         self.combo_segni_tafonomici = QComboBox()
         self.combo_segni_tafonomici.setEditable(True)
-        layout.addRow("Segni Tafonomici Evidenti:", self.combo_segni_tafonomici)
+        self.combo_segni_tafonomici.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_segni_tafonomici, row, 1)
+        row += 1
 
+        # Caratterizzazione Segni
+        grid.addWidget(QLabel("Caratterizzazione Segni:"), row, 0)
         self.combo_caratterizzazione_tafonomici = QComboBox()
         self.combo_caratterizzazione_tafonomici.setEditable(True)
-        layout.addRow("Caratterizzazione Segni:", self.combo_caratterizzazione_tafonomici)
+        self.combo_caratterizzazione_tafonomici.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_caratterizzazione_tafonomici, row, 1)
+        row += 1
 
+        # Stato Conservazione
+        grid.addWidget(QLabel("Stato Conservazione:"), row, 0)
         self.combo_stato_conservazione = QComboBox()
-        layout.addRow("Stato Conservazione:", self.combo_stato_conservazione)
+        self.combo_stato_conservazione.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.combo_stato_conservazione, row, 1)
+        row += 1
 
+        # Alterazioni Morfologiche
+        grid.addWidget(QLabel("Alterazioni Morfologiche:"), row, 0)
         self.txt_alterazioni = QLineEdit()
-        layout.addRow("Alterazioni Morfologiche:", self.txt_alterazioni)
+        self.txt_alterazioni.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        grid.addWidget(self.txt_alterazioni, row, 1)
+
+        layout.addLayout(grid)
+        layout.addStretch()
 
         return widget
 
@@ -480,15 +558,15 @@ class FaunaManager(QWidget):
             stats_text.append("-" * 80)
 
             # NMI (Numero Minimo Individui)
-            nmi_values = [float(r['numero_minimo_individui']) for r in records
+            nmi_values = [int(r['numero_minimo_individui']) for r in records
                          if r.get('numero_minimo_individui') not in (None, '', 0)]
             if nmi_values:
                 stats_text.append(f"Numero Minimo Individui (NMI):")
                 stats_text.append(f"  Totale record con NMI: {len(nmi_values)}")
-                stats_text.append(f"  Media: {sum(nmi_values)/len(nmi_values):.2f}")
-                stats_text.append(f"  Minimo: {min(nmi_values):.2f}")
-                stats_text.append(f"  Massimo: {max(nmi_values):.2f}")
-                stats_text.append(f"  Somma totale: {sum(nmi_values):.2f}")
+                stats_text.append(f"  Media: {sum(nmi_values)/len(nmi_values):.1f}")
+                stats_text.append(f"  Minimo: {min(nmi_values)}")
+                stats_text.append(f"  Massimo: {max(nmi_values)}")
+                stats_text.append(f"  Somma totale: {sum(nmi_values)}")
             else:
                 stats_text.append("Numero Minimo Individui (NMI): Nessun dato")
 
@@ -731,7 +809,7 @@ class FaunaManager(QWidget):
         self.set_combo_value(self.combo_num_stimato, record.get('numero_stimato_resti', ''))
 
         nmi = record.get('numero_minimo_individui', 0)
-        self.spin_nmi.setValue(float(nmi) if nmi else 0)
+        self.spin_nmi.setValue(int(nmi) if nmi else 0)
 
         self.set_combo_value(self.combo_specie, record.get('specie', ''))
         self.set_combo_value(self.combo_parti_scheletriche, record.get('parti_scheletriche', ''))
