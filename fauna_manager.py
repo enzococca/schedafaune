@@ -113,9 +113,10 @@ class FaunaManager(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # Toolbar
-        self.create_toolbar()
-        main_layout.addWidget(self.toolbar)
+        # Toolbars
+        self.create_toolbars()
+        main_layout.addWidget(self.nav_toolbar)
+        main_layout.addWidget(self.action_toolbar)
 
         # Barra informazioni record
         info_layout = QHBoxLayout()
@@ -150,70 +151,74 @@ class FaunaManager(QWidget):
 
         main_layout.addWidget(self.tab_widget)
 
-    def create_toolbar(self):
-        """Crea la toolbar di navigazione e gestione"""
-        self.toolbar = QToolBar("Navigazione")
-        self.toolbar.setMovable(False)
+    def create_toolbars(self):
+        """Crea le toolbars separate per navigazione e azioni"""
+
+        # ========== TOOLBAR NAVIGAZIONE ==========
+        self.nav_toolbar = QToolBar("Navigazione Record")
+        self.nav_toolbar.setMovable(False)
 
         # Navigazione
         self.act_first = QAction("⏮ Primo", self)
         self.act_first.triggered.connect(self.first_record)
-        self.toolbar.addAction(self.act_first)
+        self.nav_toolbar.addAction(self.act_first)
 
         self.act_prev = QAction("◀ Precedente", self)
         self.act_prev.triggered.connect(self.previous_record)
-        self.toolbar.addAction(self.act_prev)
+        self.nav_toolbar.addAction(self.act_prev)
 
         self.act_next = QAction("Successivo ▶", self)
         self.act_next.triggered.connect(self.next_record)
-        self.toolbar.addAction(self.act_next)
+        self.nav_toolbar.addAction(self.act_next)
 
         self.act_last = QAction("Ultimo ⏭", self)
         self.act_last.triggered.connect(self.last_record)
-        self.toolbar.addAction(self.act_last)
+        self.nav_toolbar.addAction(self.act_last)
 
-        self.toolbar.addSeparator()
+        # ========== TOOLBAR AZIONI ==========
+        self.action_toolbar = QToolBar("Azioni")
+        self.action_toolbar.setMovable(False)
 
         # Gestione record
         self.act_new = QAction("➕ Nuovo", self)
         self.act_new.triggered.connect(self.new_record)
-        self.toolbar.addAction(self.act_new)
+        self.action_toolbar.addAction(self.act_new)
 
         self.act_save = QAction("💾 Salva", self)
         self.act_save.triggered.connect(self.save_record)
-        self.toolbar.addAction(self.act_save)
+        self.action_toolbar.addAction(self.act_save)
 
         self.act_delete = QAction("🗑 Elimina", self)
         self.act_delete.triggered.connect(self.delete_record)
-        self.toolbar.addAction(self.act_delete)
+        self.action_toolbar.addAction(self.act_delete)
 
-        self.toolbar.addSeparator()
+        self.action_toolbar.addSeparator()
 
         # Ricerca
         self.act_search = QAction("🔍 Cerca", self)
         self.act_search.triggered.connect(self.search_records)
-        self.toolbar.addAction(self.act_search)
+        self.action_toolbar.addAction(self.act_search)
 
-        self.toolbar.addSeparator()
+        self.action_toolbar.addSeparator()
 
         # Gestione Vocabolario
         self.act_vocabulary = QAction("📚 Gestione Vocabolario", self)
         self.act_vocabulary.triggered.connect(self.manage_vocabulary)
-        self.toolbar.addAction(self.act_vocabulary)
+        self.action_toolbar.addAction(self.act_vocabulary)
 
-        self.toolbar.addSeparator()
+        self.action_toolbar.addSeparator()
 
         # Cambia Database
         self.act_change_db = QAction("🔄 Cambia Database", self)
         self.act_change_db.triggered.connect(self.change_database)
-        self.toolbar.addAction(self.act_change_db)
+        self.action_toolbar.addAction(self.act_change_db)
 
-        self.toolbar.addSeparator()
+        self.action_toolbar.addSeparator()
 
         # Esportazione
         self.act_export_pdf = QAction("📄 Esporta PDF", self)
         self.act_export_pdf.triggered.connect(self.export_pdf)
-        self.toolbar.addAction(self.act_export_pdf)
+        self.action_toolbar.addAction(self.act_export_pdf)
 
     def create_tab_identificativi(self) -> QWidget:
         """Crea il tab dei dati identificativi e deposizionali"""
