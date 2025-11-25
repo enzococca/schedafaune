@@ -344,31 +344,56 @@ class FaunaManager(QWidget):
         grid.addWidget(self.spin_nmi, row, 1)
         row += 1
 
-        # Specie
-        grid.addWidget(QLabel("Specie:"), row, 0)
-        self.combo_specie = QComboBox()
-        self.combo_specie.setEditable(True)
-        self.combo_specie.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        grid.addWidget(self.combo_specie, row, 1)
-        row += 1
-
-        # Parti Scheletriche
-        grid.addWidget(QLabel("Parti Scheletriche:"), row, 0)
-        self.combo_parti_scheletriche = QComboBox()
-        self.combo_parti_scheletriche.setEditable(True)
-        self.combo_parti_scheletriche.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        grid.addWidget(self.combo_parti_scheletriche, row, 1)
-        row += 1
-
-        # Misure Ossa (rimane float)
-        grid.addWidget(QLabel("Misure Ossa (mm):"), row, 0)
-        self.spin_misure = QDoubleSpinBox()
-        self.spin_misure.setDecimals(2)
-        self.spin_misure.setMaximum(9999.99)
-        self.spin_misure.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        grid.addWidget(self.spin_misure, row, 1)
-
         layout.addLayout(grid)
+
+        # ========== TABELLA SPECIE E PSI ==========
+        layout.addWidget(QLabel("<b>Specie e Parti Scheletriche (PSI):</b>"))
+
+        # Toolbar per tabella specie/PSI
+        toolbar_specie = QToolBar()
+        toolbar_specie.setMovable(False)
+        btn_add_specie = toolbar_specie.addAction("➕ Aggiungi Riga")
+        btn_add_specie.triggered.connect(self.add_specie_psi_row)
+        btn_remove_specie = toolbar_specie.addAction("➖ Rimuovi Riga")
+        btn_remove_specie.triggered.connect(self.remove_specie_psi_row)
+        layout.addWidget(toolbar_specie)
+
+        # Tabella Specie e PSI
+        self.table_specie_psi = QTableWidget()
+        self.table_specie_psi.setColumnCount(2)
+        self.table_specie_psi.setHorizontalHeaderLabels(["Specie", "PSI (Parti Scheletriche)"])
+        self.table_specie_psi.horizontalHeader().setStretchLastSection(True)
+        self.table_specie_psi.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table_specie_psi.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table_specie_psi.setMinimumHeight(150)
+        self.table_specie_psi.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(self.table_specie_psi)
+
+        # ========== TABELLA MISURE ==========
+        layout.addWidget(QLabel("<b>Misure Ossa:</b>"))
+
+        # Toolbar per tabella misure
+        toolbar_misure = QToolBar()
+        toolbar_misure.setMovable(False)
+        btn_add_misura = toolbar_misure.addAction("➕ Aggiungi Riga")
+        btn_add_misura.triggered.connect(self.add_misura_row)
+        btn_remove_misura = toolbar_misure.addAction("➖ Rimuovi Riga")
+        btn_remove_misura.triggered.connect(self.remove_misura_row)
+        layout.addWidget(toolbar_misure)
+
+        # Tabella Misure (6 colonne)
+        self.table_misure = QTableWidget()
+        self.table_misure.setColumnCount(6)
+        self.table_misure.setHorizontalHeaderLabels([
+            "Elemento Anatomico", "Specie", "GL (mm)", "GB (mm)", "Bp (mm)", "Bd (mm)"
+        ])
+        self.table_misure.horizontalHeader().setStretchLastSection(True)
+        for i in range(6):
+            self.table_misure.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
+        self.table_misure.setMinimumHeight(150)
+        self.table_misure.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(self.table_misure)
+
         layout.addStretch()
 
         return widget
@@ -599,8 +624,12 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Massimo: {max(nmi_values)}")
                 stats_text.append(f"  Somma totale: {sum(nmi_values)}")
 
-            misure_values = [float(r['misure_ossa']) for r in records
-                            if r.get('misure_ossa') not in (None, '', 0)]
+            # Misure Ossa (supporta JSON)
+            misure_values = []
+            for r in records:
+                measurements = self._extract_measurements_from_record(r)
+                misure_values.extend(measurements)
+
             if misure_values:
                 stats_text.append(f"\nMisure Ossa (mm):")
                 stats_text.append(f"  Totale misurazioni: {len(misure_values)}")
@@ -635,9 +664,10 @@ class FaunaManager(QWidget):
                     # Specie principali nel sito
                     sito_species = {}
                     for r in sito_records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            sito_species[sp] = sito_species.get(sp, 0) + 1
+                        species_list = self._extract_species_from_record(r)
+                        for sp in species_list:
+                            if sp:
+                                sito_species[sp] = sito_species.get(sp, 0) + 1
 
                     if sito_species:
                         top_species = sorted(sito_species.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -671,9 +701,10 @@ class FaunaManager(QWidget):
                             # Specie per area
                             area_species = {}
                             for r in area_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    area_species[sp] = area_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        area_species[sp] = area_species.get(sp, 0) + 1
 
                             if area_species:
                                 top_species = sorted(area_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -702,9 +733,10 @@ class FaunaManager(QWidget):
                             # Specie per saggio
                             saggio_species = {}
                             for r in saggio_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    saggio_species[sp] = saggio_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        saggio_species[sp] = saggio_species.get(sp, 0) + 1
 
                             if saggio_species:
                                 top_species = sorted(saggio_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -744,9 +776,10 @@ class FaunaManager(QWidget):
                             # Specie per US
                             us_species = {}
                             for r in us_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    us_species[sp] = us_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        us_species[sp] = us_species.get(sp, 0) + 1
 
                             if us_species:
                                 top_species = sorted(us_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -789,9 +822,10 @@ class FaunaManager(QWidget):
                             # Specie per combinazione
                             comb_species = {}
                             for r in comb_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    comb_species[sp] = comb_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        comb_species[sp] = comb_species.get(sp, 0) + 1
 
                             if comb_species:
                                 top_species = sorted(comb_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -872,6 +906,65 @@ class FaunaManager(QWidget):
             import traceback
             traceback.print_exc()
 
+    def _extract_species_from_record(self, record: Dict) -> list:
+        """Estrae tutte le specie da un record (supporta sia JSON che campo singolo)"""
+        import json
+        species = []
+
+        # Prova prima con il nuovo formato JSON
+        specie_psi_json = record.get('specie_psi', '')
+        if specie_psi_json and specie_psi_json.strip():
+            try:
+                specie_psi_data = json.loads(specie_psi_json)
+                for row in specie_psi_data:
+                    if len(row) > 0 and row[0]:
+                        species.append(row[0])
+            except:
+                pass
+
+        # Fallback: usa il campo specie vecchio
+        if not species:
+            sp = record.get('specie', '')
+            if sp:
+                species.append(sp)
+
+        return species
+
+    def _extract_measurements_from_record(self, record: Dict) -> list:
+        """Estrae tutte le misure da un record (supporta sia JSON che campo singolo)"""
+        import json
+        measurements = []
+
+        # Prova prima con il nuovo formato JSON
+        misure_json = record.get('misure_ossa', '')
+        if misure_json and misure_json.strip():
+            try:
+                misure_data = json.loads(misure_json)
+                for row in misure_data:
+                    # Row format: [Elemento Anatomico, Specie, GL, GB, Bp, Bd]
+                    if len(row) >= 6:
+                        # Estrai GL, GB, Bp, Bd (colonne 2-5)
+                        for i in range(2, 6):
+                            try:
+                                val = float(row[i]) if row[i] else 0
+                                if val > 0:
+                                    measurements.append(val)
+                            except (ValueError, TypeError):
+                                pass
+            except:
+                pass
+
+        # Fallback: usa il campo misure_ossa vecchio (numerico)
+        if not measurements:
+            try:
+                val = float(record.get('misure_ossa', 0))
+                if val > 0:
+                    measurements.append(val)
+            except (ValueError, TypeError):
+                pass
+
+        return measurements
+
     def _generate_descriptive_summary(self, records, nmi_values, misure_values, siti, aree, saggi, us_list):
         """Genera un sommario descrittivo discorsivo delle statistiche"""
         summary = []
@@ -906,9 +999,10 @@ class FaunaManager(QWidget):
                 # Specie dominanti per il sito principale
                 site_species = {}
                 for r in dominant_site[1]:
-                    sp = r.get('specie', '')
-                    if sp:
-                        site_species[sp] = site_species.get(sp, 0) + 1
+                    species_list = self._extract_species_from_record(r)
+                    for sp in species_list:
+                        if sp:
+                            site_species[sp] = site_species.get(sp, 0) + 1
 
                 if site_species:
                     top_sp = max(site_species.items(), key=lambda x: x[1])
@@ -924,9 +1018,10 @@ class FaunaManager(QWidget):
         # Analisi specie
         species_count = {}
         for r in records:
-            sp = r.get('specie', '')
-            if sp:
-                species_count[sp] = species_count.get(sp, 0) + 1
+            species_list = self._extract_species_from_record(r)
+            for sp in species_list:
+                if sp:
+                    species_count[sp] = species_count.get(sp, 0) + 1
 
         if species_count:
             top_3_species = sorted(species_count.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -1121,9 +1216,10 @@ class FaunaManager(QWidget):
                 if records:
                     species_count = {}
                     for r in records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            species_count[sp] = species_count.get(sp, 0) + 1
+                        species_list = self._extract_species_from_record(r)
+                        for sp in species_list:
+                            if sp:
+                                species_count[sp] = species_count.get(sp, 0) + 1
 
                     if species_count:
                         writer.writerow(['DISTRIBUZIONE SPECIE'])
@@ -1283,15 +1379,8 @@ class FaunaManager(QWidget):
         self.combo_num_stimato.addItem("")
         self.combo_num_stimato.addItems(self.db.get_voc_values('numero_stimato_resti'))
 
-        # Specie
-        self.combo_specie.clear()
-        self.combo_specie.addItem("")
-        self.combo_specie.addItems(self.db.get_voc_values('specie'))
-
-        # Parti scheletriche
-        self.combo_parti_scheletriche.clear()
-        self.combo_parti_scheletriche.addItem("")
-        self.combo_parti_scheletriche.addItems(self.db.get_voc_values('parti_scheletriche'))
+        # Note: Specie e Parti Scheletriche ora sono nelle table widgets
+        # e vengono popolate dinamicamente quando si aggiungono righe
 
         # Frammentazione
         self.combo_frammentazione.clear()
@@ -1376,6 +1465,163 @@ class FaunaManager(QWidget):
         self.update_navigation_buttons()
         self.update_record_info()
 
+    # ========== GESTIONE TABELLE SPECIE/PSI E MISURE ==========
+
+    def add_specie_psi_row(self):
+        """Aggiunge una riga alla tabella Specie/PSI"""
+        row_position = self.table_specie_psi.rowCount()
+        self.table_specie_psi.insertRow(row_position)
+
+        # Combo Specie
+        combo_specie = QComboBox()
+        combo_specie.setEditable(True)
+        combo_specie.addItem("")
+        combo_specie.addItems(self.db.get_voc_values('specie'))
+        self.table_specie_psi.setCellWidget(row_position, 0, combo_specie)
+
+        # Combo PSI
+        combo_psi = QComboBox()
+        combo_psi.setEditable(True)
+        combo_psi.addItem("")
+        combo_psi.addItems(self.db.get_voc_values('parti_scheletriche'))
+        self.table_specie_psi.setCellWidget(row_position, 1, combo_psi)
+
+    def remove_specie_psi_row(self):
+        """Rimuove la riga selezionata dalla tabella Specie/PSI"""
+        current_row = self.table_specie_psi.currentRow()
+        if current_row >= 0:
+            self.table_specie_psi.removeRow(current_row)
+
+    def get_specie_psi_data(self) -> list:
+        """Estrae i dati dalla tabella Specie/PSI come lista di liste"""
+        data = []
+        for row in range(self.table_specie_psi.rowCount()):
+            specie_widget = self.table_specie_psi.cellWidget(row, 0)
+            psi_widget = self.table_specie_psi.cellWidget(row, 1)
+
+            if specie_widget and psi_widget:
+                specie = specie_widget.currentText()
+                psi = psi_widget.currentText()
+                if specie or psi:  # Include solo righe non vuote
+                    data.append([specie, psi])
+        return data
+
+    def set_specie_psi_data(self, data: list):
+        """Popola la tabella Specie/PSI da una lista di liste"""
+        # Svuota la tabella
+        self.table_specie_psi.setRowCount(0)
+
+        # Aggiungi righe con i dati
+        for row_data in data:
+            if len(row_data) >= 2:
+                row_position = self.table_specie_psi.rowCount()
+                self.table_specie_psi.insertRow(row_position)
+
+                # Combo Specie
+                combo_specie = QComboBox()
+                combo_specie.setEditable(True)
+                combo_specie.addItem("")
+                combo_specie.addItems(self.db.get_voc_values('specie'))
+                combo_specie.setCurrentText(row_data[0])
+                self.table_specie_psi.setCellWidget(row_position, 0, combo_specie)
+
+                # Combo PSI
+                combo_psi = QComboBox()
+                combo_psi.setEditable(True)
+                combo_psi.addItem("")
+                combo_psi.addItems(self.db.get_voc_values('parti_scheletriche'))
+                combo_psi.setCurrentText(row_data[1])
+                self.table_specie_psi.setCellWidget(row_position, 1, combo_psi)
+
+    def add_misura_row(self):
+        """Aggiunge una riga alla tabella Misure"""
+        row_position = self.table_misure.rowCount()
+        self.table_misure.insertRow(row_position)
+
+        # Combo Elemento Anatomico
+        combo_elemento = QComboBox()
+        combo_elemento.setEditable(True)
+        combo_elemento.addItem("")
+        combo_elemento.addItems(self.db.get_voc_values('elemento_anatomico'))
+        self.table_misure.setCellWidget(row_position, 0, combo_elemento)
+
+        # Combo Specie
+        combo_specie = QComboBox()
+        combo_specie.setEditable(True)
+        combo_specie.addItem("")
+        combo_specie.addItems(self.db.get_voc_values('specie'))
+        self.table_misure.setCellWidget(row_position, 1, combo_specie)
+
+        # Line edit per misure (GL, GB, Bp, Bd)
+        for col in range(2, 6):
+            line_edit = QLineEdit()
+            line_edit.setPlaceholderText("0.00")
+            self.table_misure.setCellWidget(row_position, col, line_edit)
+
+    def remove_misura_row(self):
+        """Rimuove la riga selezionata dalla tabella Misure"""
+        current_row = self.table_misure.currentRow()
+        if current_row >= 0:
+            self.table_misure.removeRow(current_row)
+
+    def get_misure_data(self) -> list:
+        """Estrae i dati dalla tabella Misure come lista di liste"""
+        data = []
+        for row in range(self.table_misure.rowCount()):
+            elemento_widget = self.table_misure.cellWidget(row, 0)
+            specie_widget = self.table_misure.cellWidget(row, 1)
+
+            if elemento_widget and specie_widget:
+                elemento = elemento_widget.currentText()
+                specie = specie_widget.currentText()
+
+                # Leggi misure (GL, GB, Bp, Bd)
+                misure = []
+                for col in range(2, 6):
+                    widget = self.table_misure.cellWidget(row, col)
+                    if widget:
+                        text = widget.text().strip()
+                        misure.append(text if text else "")
+
+                # Include solo righe con almeno elemento o specie
+                if elemento or specie or any(misure):
+                    data.append([elemento, specie] + misure)
+        return data
+
+    def set_misure_data(self, data: list):
+        """Popola la tabella Misure da una lista di liste"""
+        # Svuota la tabella
+        self.table_misure.setRowCount(0)
+
+        # Aggiungi righe con i dati
+        for row_data in data:
+            if len(row_data) >= 6:
+                row_position = self.table_misure.rowCount()
+                self.table_misure.insertRow(row_position)
+
+                # Combo Elemento Anatomico
+                combo_elemento = QComboBox()
+                combo_elemento.setEditable(True)
+                combo_elemento.addItem("")
+                combo_elemento.addItems(self.db.get_voc_values('elemento_anatomico'))
+                combo_elemento.setCurrentText(row_data[0])
+                self.table_misure.setCellWidget(row_position, 0, combo_elemento)
+
+                # Combo Specie
+                combo_specie = QComboBox()
+                combo_specie.setEditable(True)
+                combo_specie.addItem("")
+                combo_specie.addItems(self.db.get_voc_values('specie'))
+                combo_specie.setCurrentText(row_data[1])
+                self.table_misure.setCellWidget(row_position, 1, combo_specie)
+
+                # Line edit per misure (GL, GB, Bp, Bd)
+                for col in range(2, 6):
+                    line_edit = QLineEdit()
+                    line_edit.setPlaceholderText("0.00")
+                    line_edit.setText(str(row_data[col]) if row_data[col] else "")
+                    self.table_misure.setCellWidget(row_position, col, line_edit)
+
     def display_record(self, record: Dict):
         """Visualizza un record nel form"""
         if not record:
@@ -1424,11 +1670,34 @@ class FaunaManager(QWidget):
         nmi = record.get('numero_minimo_individui', 0)
         self.spin_nmi.setValue(int(nmi) if nmi else 0)
 
-        self.set_combo_value(self.combo_specie, record.get('specie', ''))
-        self.set_combo_value(self.combo_parti_scheletriche, record.get('parti_scheletriche', ''))
+        # Specie e PSI (JSON)
+        import json
+        specie_psi_json = record.get('specie_psi', '')
+        try:
+            if specie_psi_json and specie_psi_json.strip():
+                specie_psi_data = json.loads(specie_psi_json)
+                self.set_specie_psi_data(specie_psi_data)
+            else:
+                # Fallback: usa campi vecchi se JSON vuoto
+                specie = record.get('specie', '')
+                psi = record.get('parti_scheletriche', '')
+                if specie or psi:
+                    self.set_specie_psi_data([[specie, psi]])
+                else:
+                    self.set_specie_psi_data([])
+        except:
+            self.set_specie_psi_data([])
 
-        misure = record.get('misure_ossa', 0)
-        self.spin_misure.setValue(float(misure) if misure else 0)
+        # Misure Ossa (JSON)
+        misure_json = record.get('misure_ossa', '')
+        try:
+            if misure_json and misure_json.strip():
+                misure_data = json.loads(misure_json)
+                self.set_misure_data(misure_data)
+            else:
+                self.set_misure_data([])
+        except:
+            self.set_misure_data([])
 
         # Dati tafonomici
         self.set_combo_value(self.combo_frammentazione, record.get('stato_frammentazione', ''))
@@ -1496,9 +1765,23 @@ class FaunaManager(QWidget):
         data['deposizione'] = self.combo_deposizione.currentText()
         data['numero_stimato_resti'] = self.combo_num_stimato.currentText()
         data['numero_minimo_individui'] = self.spin_nmi.value()
-        data['specie'] = self.combo_specie.currentText()
-        data['parti_scheletriche'] = self.combo_parti_scheletriche.currentText()
-        data['misure_ossa'] = self.spin_misure.value()
+
+        # Specie e PSI (JSON)
+        import json
+        specie_psi_data = self.get_specie_psi_data()
+        data['specie_psi'] = json.dumps(specie_psi_data, ensure_ascii=False) if specie_psi_data else ''
+
+        # Mantieni compatibilità con campi vecchi (prendi prima riga se presente)
+        if specie_psi_data:
+            data['specie'] = specie_psi_data[0][0] if len(specie_psi_data[0]) > 0 else ''
+            data['parti_scheletriche'] = specie_psi_data[0][1] if len(specie_psi_data[0]) > 1 else ''
+        else:
+            data['specie'] = ''
+            data['parti_scheletriche'] = ''
+
+        # Misure Ossa (JSON)
+        misure_data = self.get_misure_data()
+        data['misure_ossa'] = json.dumps(misure_data, ensure_ascii=False) if misure_data else ''
 
         # Dati tafonomici
         data['stato_frammentazione'] = self.combo_frammentazione.currentText()
@@ -1536,7 +1819,6 @@ class FaunaManager(QWidget):
         self.txt_doc_fotografica.clear()
         self.txt_desc_contesto.clear()
         self.spin_nmi.setValue(0)
-        self.spin_misure.setValue(0)
         self.txt_alterazioni.clear()
         self.txt_note_terreno.clear()
         self.txt_campionature.clear()
@@ -1546,11 +1828,14 @@ class FaunaManager(QWidget):
         self.txt_interpretazione.clear()
         self.check_combustione_altri.setChecked(False)
 
+        # Clear tables
+        self.table_specie_psi.setRowCount(0)
+        self.table_misure.setRowCount(0)
+
         # Reset combo boxes
         for combo in [self.combo_metodologia, self.combo_contesto, self.combo_connessione,
                       self.combo_tipologia_accumulo, self.combo_deposizione, self.combo_num_stimato,
-                      self.combo_specie, self.combo_parti_scheletriche, self.combo_frammentazione,
-                      self.combo_tracce_combustione, self.combo_tipo_combustione,
+                      self.combo_frammentazione, self.combo_tracce_combustione, self.combo_tipo_combustione,
                       self.combo_segni_tafonomici, self.combo_caratterizzazione_tafonomici,
                       self.combo_stato_conservazione]:
             combo.setCurrentIndex(0)
