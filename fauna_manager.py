@@ -624,18 +624,85 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Massimo: {max(nmi_values)}")
                 stats_text.append(f"  Somma totale: {sum(nmi_values)}")
 
-            # Misure Ossa (supporta JSON)
+            # Parti Scheletriche (PSI) - distribuzione generale
+            all_psi = {}
+            for r in records:
+                psi_list = self._extract_psi_from_record(r)
+                for psi in psi_list:
+                    if psi:
+                        all_psi[psi] = all_psi.get(psi, 0) + 1
+
+            if all_psi:
+                stats_text.append(f"\nParti Scheletriche (PSI) - Distribuzione:")
+                stats_text.append(f"  Totale parti identificate: {sum(all_psi.values())}")
+                stats_text.append(f"  Tipi di parti univoche: {len(all_psi)}")
+                sorted_psi = sorted(all_psi.items(), key=lambda x: x[1], reverse=True)[:10]
+                for psi, cnt in sorted_psi:
+                    pct = (cnt / sum(all_psi.values())) * 100
+                    stats_text.append(f"  - {psi}: {cnt} ({pct:.1f}%)")
+
+            # Associazioni Specie-PSI
+            specie_psi_assoc = {}
+            for r in records:
+                pairs = self._extract_specie_psi_pairs_from_record(r)
+                for specie, psi in pairs:
+                    if specie and psi:
+                        key = f"{specie} → {psi}"
+                        specie_psi_assoc[key] = specie_psi_assoc.get(key, 0) + 1
+
+            if specie_psi_assoc:
+                stats_text.append(f"\nAssociazioni Specie-PSI più frequenti:")
+                sorted_assoc = sorted(specie_psi_assoc.items(), key=lambda x: x[1], reverse=True)[:10]
+                for assoc, cnt in sorted_assoc:
+                    stats_text.append(f"  - {assoc}: {cnt}")
+
+            # Misure Ossa (supporta JSON) - statistiche generali
             misure_values = []
             for r in records:
                 measurements = self._extract_measurements_from_record(r)
                 misure_values.extend(measurements)
 
             if misure_values:
-                stats_text.append(f"\nMisure Ossa (mm):")
+                stats_text.append(f"\nMisure Ossa (mm) - Riepilogo:")
                 stats_text.append(f"  Totale misurazioni: {len(misure_values)}")
                 stats_text.append(f"  Media: {sum(misure_values)/len(misure_values):.2f} mm")
                 stats_text.append(f"  Minimo: {min(misure_values):.2f} mm")
                 stats_text.append(f"  Massimo: {max(misure_values):.2f} mm")
+
+            # Misure dettagliate per tipo (GL, GB, Bp, Bd)
+            all_detailed_measures = []
+            for r in records:
+                detailed = self._extract_detailed_measurements_from_record(r)
+                all_detailed_measures.extend(detailed)
+
+            if all_detailed_measures:
+                stats_text.append(f"\nMisure dettagliate per tipo:")
+                gl_vals = [m['GL'] for m in all_detailed_measures if m['GL'] > 0]
+                gb_vals = [m['GB'] for m in all_detailed_measures if m['GB'] > 0]
+                bp_vals = [m['Bp'] for m in all_detailed_measures if m['Bp'] > 0]
+                bd_vals = [m['Bd'] for m in all_detailed_measures if m['Bd'] > 0]
+
+                if gl_vals:
+                    stats_text.append(f"  GL (Greatest Length): n={len(gl_vals)}, media={sum(gl_vals)/len(gl_vals):.2f}, min={min(gl_vals):.2f}, max={max(gl_vals):.2f}")
+                if gb_vals:
+                    stats_text.append(f"  GB (Greatest Breadth): n={len(gb_vals)}, media={sum(gb_vals)/len(gb_vals):.2f}, min={min(gb_vals):.2f}, max={max(gb_vals):.2f}")
+                if bp_vals:
+                    stats_text.append(f"  Bp (Proximal Breadth): n={len(bp_vals)}, media={sum(bp_vals)/len(bp_vals):.2f}, min={min(bp_vals):.2f}, max={max(bp_vals):.2f}")
+                if bd_vals:
+                    stats_text.append(f"  Bd (Distal Breadth): n={len(bd_vals)}, media={sum(bd_vals)/len(bd_vals):.2f}, min={min(bd_vals):.2f}, max={max(bd_vals):.2f}")
+
+                # Misure per elemento anatomico
+                elementi_count = {}
+                for m in all_detailed_measures:
+                    if m['elemento']:
+                        elementi_count[m['elemento']] = elementi_count.get(m['elemento'], 0) + 1
+
+                if elementi_count:
+                    stats_text.append(f"\nMisure per Elemento Anatomico:")
+                    sorted_elementi = sorted(elementi_count.items(), key=lambda x: x[1], reverse=True)
+                    for el, cnt in sorted_elementi:
+                        stats_text.append(f"  - {el}: {cnt} misurazioni")
+
             stats_text.append("")
 
             # === STATISTICHE PER SITO ===
@@ -684,6 +751,33 @@ class FaunaManager(QWidget):
                         stats_text.append(f"NMI medio: {sum(sito_nmi)/len(sito_nmi):.1f}")
                         stats_text.append(f"NMI min: {min(sito_nmi)}, max: {max(sito_nmi)}")
 
+                    # PSI per sito
+                    sito_psi = {}
+                    for r in sito_records:
+                        psi_list = self._extract_psi_from_record(r)
+                        for psi in psi_list:
+                            if psi:
+                                sito_psi[psi] = sito_psi.get(psi, 0) + 1
+                    if sito_psi:
+                        top_psi = sorted(sito_psi.items(), key=lambda x: x[1], reverse=True)[:5]
+                        stats_text.append(f"\nParti scheletriche principali:")
+                        for psi, cnt in top_psi:
+                            stats_text.append(f"  - {psi}: {cnt}")
+
+                    # Misure per sito
+                    sito_measures = []
+                    for r in sito_records:
+                        sito_measures.extend(self._extract_detailed_measurements_from_record(r))
+                    if sito_measures:
+                        stats_text.append(f"\nMisure ossee: {len(sito_measures)} totali")
+                        elem_count = {}
+                        for m in sito_measures:
+                            if m['elemento']:
+                                elem_count[m['elemento']] = elem_count.get(m['elemento'], 0) + 1
+                        if elem_count:
+                            top_elem = sorted(elem_count.items(), key=lambda x: x[1], reverse=True)[:3]
+                            stats_text.append(f"  Elementi misurati: {', '.join([f'{e} ({c})' for e, c in top_elem])}")
+
                     # === STATISTICHE PER AREA (all'interno del sito) ===
                     if sito_aree and len(sito_aree) > 0:
                         stats_text.append(f"\n{'-' * 100}")
@@ -716,6 +810,23 @@ class FaunaManager(QWidget):
                             if area_nmi:
                                 stats_text.append(f"    NMI totale: {sum(area_nmi)}, Media: {sum(area_nmi)/len(area_nmi):.1f}")
 
+                            # PSI per area
+                            area_psi = {}
+                            for r in area_records:
+                                for psi in self._extract_psi_from_record(r):
+                                    if psi:
+                                        area_psi[psi] = area_psi.get(psi, 0) + 1
+                            if area_psi:
+                                top_psi = sorted(area_psi.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    PSI: {', '.join([f'{p} ({c})' for p, c in top_psi])}")
+
+                            # Misure per area
+                            area_measures = []
+                            for r in area_records:
+                                area_measures.extend(self._extract_detailed_measurements_from_record(r))
+                            if area_measures:
+                                stats_text.append(f"    Misure: {len(area_measures)} totali")
+
                     # === STATISTICHE PER SAGGIO (all'interno del sito) ===
                     if sito_saggi and len(sito_saggi) > 0:
                         stats_text.append(f"\n{'-' * 100}")
@@ -747,6 +858,23 @@ class FaunaManager(QWidget):
                                          if r.get('numero_minimo_individui') not in (None, '', 0)]
                             if saggio_nmi:
                                 stats_text.append(f"    NMI totale: {sum(saggio_nmi)}, Media: {sum(saggio_nmi)/len(saggio_nmi):.1f}")
+
+                            # PSI per saggio
+                            saggio_psi = {}
+                            for r in saggio_records:
+                                for psi in self._extract_psi_from_record(r):
+                                    if psi:
+                                        saggio_psi[psi] = saggio_psi.get(psi, 0) + 1
+                            if saggio_psi:
+                                top_psi = sorted(saggio_psi.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    PSI: {', '.join([f'{p} ({c})' for p, c in top_psi])}")
+
+                            # Misure per saggio
+                            saggio_measures = []
+                            for r in saggio_records:
+                                saggio_measures.extend(self._extract_detailed_measurements_from_record(r))
+                            if saggio_measures:
+                                stats_text.append(f"    Misure: {len(saggio_measures)} totali")
 
                     # === STATISTICHE PER US (all'interno del sito) ===
                     if sito_us and len(sito_us) > 0:
@@ -790,6 +918,23 @@ class FaunaManager(QWidget):
                                      if r.get('numero_minimo_individui') not in (None, '', 0)]
                             if us_nmi:
                                 stats_text.append(f"    NMI totale: {sum(us_nmi)}, Media: {sum(us_nmi)/len(us_nmi):.1f}")
+
+                            # PSI per US
+                            us_psi = {}
+                            for r in us_records:
+                                for psi in self._extract_psi_from_record(r):
+                                    if psi:
+                                        us_psi[psi] = us_psi.get(psi, 0) + 1
+                            if us_psi:
+                                top_psi = sorted(us_psi.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    PSI: {', '.join([f'{p} ({c})' for p, c in top_psi])}")
+
+                            # Misure per US
+                            us_measures = []
+                            for r in us_records:
+                                us_measures.extend(self._extract_detailed_measurements_from_record(r))
+                            if us_measures:
+                                stats_text.append(f"    Misure: {len(us_measures)} totali")
 
                     # === STATISTICHE DETTAGLIATE PER COMBINAZIONE AREA+SAGGIO+US ===
                     stats_text.append(f"\n{'-' * 100}")
@@ -837,6 +982,23 @@ class FaunaManager(QWidget):
                             if comb_nmi:
                                 stats_text.append(f"    NMI totale: {sum(comb_nmi)}, Media: {sum(comb_nmi)/len(comb_nmi):.1f}")
 
+                            # PSI per combinazione
+                            comb_psi = {}
+                            for r in comb_records:
+                                for psi in self._extract_psi_from_record(r):
+                                    if psi:
+                                        comb_psi[psi] = comb_psi.get(psi, 0) + 1
+                            if comb_psi:
+                                top_psi = sorted(comb_psi.items(), key=lambda x: x[1], reverse=True)[:3]
+                                stats_text.append(f"    PSI: {', '.join([f'{p} ({c})' for p, c in top_psi])}")
+
+                            # Misure per combinazione
+                            comb_measures = []
+                            for r in comb_records:
+                                comb_measures.extend(self._extract_detailed_measurements_from_record(r))
+                            if comb_measures:
+                                stats_text.append(f"    Misure: {len(comb_measures)} totali")
+
                 stats_text.append(f"\n{'=' * 100}\n")
 
             # === DISTRIBUZIONE PER CATEGORIE ===
@@ -874,6 +1036,38 @@ class FaunaManager(QWidget):
                     stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
             else:
                 stats_text.append(f"\nSpecie (Top 10): Nessun dato")
+
+            # PSI - usa estrazione JSON-aware
+            all_psi_cat = {}
+            for r in records:
+                psi_list = self._extract_psi_from_record(r)
+                for psi in psi_list:
+                    if psi and psi.strip():
+                        all_psi_cat[psi] = all_psi_cat.get(psi, 0) + 1
+            if all_psi_cat:
+                stats_text.append(f"\nParti Scheletriche - PSI (Top 10):")
+                sorted_psi = sorted(all_psi_cat.items(), key=lambda x: x[1], reverse=True)
+                for val, count in sorted_psi[:10]:
+                    percentage = (count / sum(all_psi_cat.values())) * 100
+                    stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
+            else:
+                stats_text.append(f"\nParti Scheletriche - PSI (Top 10): Nessun dato")
+
+            # Elementi Anatomici misurati
+            all_elementi = {}
+            for r in records:
+                detailed = self._extract_detailed_measurements_from_record(r)
+                for m in detailed:
+                    if m['elemento']:
+                        all_elementi[m['elemento']] = all_elementi.get(m['elemento'], 0) + 1
+            if all_elementi:
+                stats_text.append(f"\nElementi Anatomici Misurati:")
+                sorted_elem = sorted(all_elementi.items(), key=lambda x: x[1], reverse=True)
+                for val, count in sorted_elem:
+                    percentage = (count / sum(all_elementi.values())) * 100
+                    stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
+            else:
+                stats_text.append(f"\nElementi Anatomici Misurati: Nessun dato")
 
             count_values('contesto', 'Contesto')
             count_values('metodologia_recupero', 'Metodologia di Recupero')
@@ -979,6 +1173,95 @@ class FaunaManager(QWidget):
                 pass
 
         return measurements
+
+    def _extract_psi_from_record(self, record: Dict) -> list:
+        """Estrae tutte le parti scheletriche (PSI) da un record"""
+        import json
+        psi_list = []
+
+        # Prova prima con il nuovo formato JSON
+        specie_psi_json = record.get('specie_psi', '')
+        if specie_psi_json and specie_psi_json.strip():
+            try:
+                specie_psi_data = json.loads(specie_psi_json)
+                for row in specie_psi_data:
+                    if len(row) > 1 and row[1]:
+                        psi_list.append(row[1])
+            except:
+                pass
+
+        # Fallback: usa il campo parti_scheletriche vecchio
+        if not psi_list:
+            psi = record.get('parti_scheletriche', '')
+            if psi:
+                psi_list.append(psi)
+
+        return psi_list
+
+    def _extract_specie_psi_pairs_from_record(self, record: Dict) -> list:
+        """Estrae coppie (specie, psi) da un record"""
+        import json
+        pairs = []
+
+        specie_psi_json = record.get('specie_psi', '')
+        if specie_psi_json and specie_psi_json.strip():
+            try:
+                specie_psi_data = json.loads(specie_psi_json)
+                for row in specie_psi_data:
+                    if len(row) >= 2:
+                        specie = row[0] if row[0] else ''
+                        psi = row[1] if row[1] else ''
+                        if specie or psi:
+                            pairs.append((specie, psi))
+            except:
+                pass
+
+        # Fallback
+        if not pairs:
+            specie = record.get('specie', '')
+            psi = record.get('parti_scheletriche', '')
+            if specie or psi:
+                pairs.append((specie, psi))
+
+        return pairs
+
+    def _extract_detailed_measurements_from_record(self, record: Dict) -> list:
+        """Estrae misure dettagliate da un record: [(elemento, specie, GL, GB, Bp, Bd), ...]"""
+        import json
+        detailed = []
+
+        misure_json = record.get('misure_ossa', '')
+        if misure_json and misure_json.strip():
+            try:
+                misure_data = json.loads(misure_json)
+                for row in misure_data:
+                    if len(row) >= 6:
+                        elemento = row[0] if row[0] else ''
+                        specie = row[1] if row[1] else ''
+                        gl = self._safe_float(row[2])
+                        gb = self._safe_float(row[3])
+                        bp = self._safe_float(row[4])
+                        bd = self._safe_float(row[5])
+                        if elemento or specie or gl or gb or bp or bd:
+                            detailed.append({
+                                'elemento': elemento,
+                                'specie': specie,
+                                'GL': gl,
+                                'GB': gb,
+                                'Bp': bp,
+                                'Bd': bd
+                            })
+            except:
+                pass
+
+        return detailed
+
+    def _safe_float(self, value) -> float:
+        """Converte un valore in float in modo sicuro"""
+        try:
+            return float(value) if value else 0.0
+        except (ValueError, TypeError):
+            return 0.0
 
     def _generate_descriptive_summary(self, records, nmi_values, misure_values, siti, aree, saggi, us_list):
         """Genera un sommario descrittivo discorsivo delle statistiche"""
@@ -1243,6 +1526,57 @@ class FaunaManager(QWidget):
                         for sp, count in sorted_species:
                             pct = (count / len(records)) * 100
                             writer.writerow([sp, count, f"{pct:.1f}%"])
+                        writer.writerow([])
+
+                    # Distribuzione PSI
+                    psi_count = {}
+                    for r in records:
+                        psi_list = self._extract_psi_from_record(r)
+                        for psi in psi_list:
+                            if psi:
+                                psi_count[psi] = psi_count.get(psi, 0) + 1
+
+                    if psi_count:
+                        writer.writerow(['DISTRIBUZIONE PARTI SCHELETRICHE (PSI)'])
+                        writer.writerow(['Parte Scheletrica', 'Conteggio', 'Percentuale'])
+                        sorted_psi = sorted(psi_count.items(), key=lambda x: x[1], reverse=True)
+                        for psi, count in sorted_psi:
+                            pct = (count / sum(psi_count.values())) * 100
+                            writer.writerow([psi, count, f"{pct:.1f}%"])
+                        writer.writerow([])
+
+                    # Distribuzione Elementi Anatomici misurati
+                    elem_count = {}
+                    all_measures = []
+                    for r in records:
+                        detailed = self._extract_detailed_measurements_from_record(r)
+                        all_measures.extend(detailed)
+                        for m in detailed:
+                            if m['elemento']:
+                                elem_count[m['elemento']] = elem_count.get(m['elemento'], 0) + 1
+
+                    if elem_count:
+                        writer.writerow(['ELEMENTI ANATOMICI MISURATI'])
+                        writer.writerow(['Elemento', 'Conteggio', 'Percentuale'])
+                        sorted_elem = sorted(elem_count.items(), key=lambda x: x[1], reverse=True)
+                        for el, count in sorted_elem:
+                            pct = (count / sum(elem_count.values())) * 100
+                            writer.writerow([el, count, f"{pct:.1f}%"])
+                        writer.writerow([])
+
+                    # Misure dettagliate
+                    if all_measures:
+                        writer.writerow(['MISURE DETTAGLIATE'])
+                        writer.writerow(['Elemento', 'Specie', 'GL (mm)', 'GB (mm)', 'Bp (mm)', 'Bd (mm)'])
+                        for m in all_measures:
+                            writer.writerow([
+                                m['elemento'],
+                                m['specie'],
+                                f"{m['GL']:.2f}" if m['GL'] > 0 else '',
+                                f"{m['GB']:.2f}" if m['GB'] > 0 else '',
+                                f"{m['Bp']:.2f}" if m['Bp'] > 0 else '',
+                                f"{m['Bd']:.2f}" if m['Bd'] > 0 else ''
+                            ])
                         writer.writerow([])
 
                 # Report testuale completo
