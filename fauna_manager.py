@@ -599,8 +599,12 @@ class FaunaManager(QWidget):
                 stats_text.append(f"  Massimo: {max(nmi_values)}")
                 stats_text.append(f"  Somma totale: {sum(nmi_values)}")
 
-            misure_values = [float(r['misure_ossa']) for r in records
-                            if r.get('misure_ossa') not in (None, '', 0)]
+            # Misure Ossa (supporta JSON)
+            misure_values = []
+            for r in records:
+                measurements = self._extract_measurements_from_record(r)
+                misure_values.extend(measurements)
+
             if misure_values:
                 stats_text.append(f"\nMisure Ossa (mm):")
                 stats_text.append(f"  Totale misurazioni: {len(misure_values)}")
@@ -635,9 +639,10 @@ class FaunaManager(QWidget):
                     # Specie principali nel sito
                     sito_species = {}
                     for r in sito_records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            sito_species[sp] = sito_species.get(sp, 0) + 1
+                        species_list = self._extract_species_from_record(r)
+                        for sp in species_list:
+                            if sp:
+                                sito_species[sp] = sito_species.get(sp, 0) + 1
 
                     if sito_species:
                         top_species = sorted(sito_species.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -671,9 +676,10 @@ class FaunaManager(QWidget):
                             # Specie per area
                             area_species = {}
                             for r in area_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    area_species[sp] = area_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        area_species[sp] = area_species.get(sp, 0) + 1
 
                             if area_species:
                                 top_species = sorted(area_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -702,9 +708,10 @@ class FaunaManager(QWidget):
                             # Specie per saggio
                             saggio_species = {}
                             for r in saggio_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    saggio_species[sp] = saggio_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        saggio_species[sp] = saggio_species.get(sp, 0) + 1
 
                             if saggio_species:
                                 top_species = sorted(saggio_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -744,9 +751,10 @@ class FaunaManager(QWidget):
                             # Specie per US
                             us_species = {}
                             for r in us_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    us_species[sp] = us_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        us_species[sp] = us_species.get(sp, 0) + 1
 
                             if us_species:
                                 top_species = sorted(us_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -789,9 +797,10 @@ class FaunaManager(QWidget):
                             # Specie per combinazione
                             comb_species = {}
                             for r in comb_records:
-                                sp = r.get('specie', '')
-                                if sp:
-                                    comb_species[sp] = comb_species.get(sp, 0) + 1
+                                species_list = self._extract_species_from_record(r)
+                                for sp in species_list:
+                                    if sp:
+                                        comb_species[sp] = comb_species.get(sp, 0) + 1
 
                             if comb_species:
                                 top_species = sorted(comb_species.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -872,6 +881,65 @@ class FaunaManager(QWidget):
             import traceback
             traceback.print_exc()
 
+    def _extract_species_from_record(self, record: Dict) -> list:
+        """Estrae tutte le specie da un record (supporta sia JSON che campo singolo)"""
+        import json
+        species = []
+
+        # Prova prima con il nuovo formato JSON
+        specie_psi_json = record.get('specie_psi', '')
+        if specie_psi_json and specie_psi_json.strip():
+            try:
+                specie_psi_data = json.loads(specie_psi_json)
+                for row in specie_psi_data:
+                    if len(row) > 0 and row[0]:
+                        species.append(row[0])
+            except:
+                pass
+
+        # Fallback: usa il campo specie vecchio
+        if not species:
+            sp = record.get('specie', '')
+            if sp:
+                species.append(sp)
+
+        return species
+
+    def _extract_measurements_from_record(self, record: Dict) -> list:
+        """Estrae tutte le misure da un record (supporta sia JSON che campo singolo)"""
+        import json
+        measurements = []
+
+        # Prova prima con il nuovo formato JSON
+        misure_json = record.get('misure_ossa', '')
+        if misure_json and misure_json.strip():
+            try:
+                misure_data = json.loads(misure_json)
+                for row in misure_data:
+                    # Row format: [Elemento Anatomico, Specie, GL, GB, Bp, Bd]
+                    if len(row) >= 6:
+                        # Estrai GL, GB, Bp, Bd (colonne 2-5)
+                        for i in range(2, 6):
+                            try:
+                                val = float(row[i]) if row[i] else 0
+                                if val > 0:
+                                    measurements.append(val)
+                            except (ValueError, TypeError):
+                                pass
+            except:
+                pass
+
+        # Fallback: usa il campo misure_ossa vecchio (numerico)
+        if not measurements:
+            try:
+                val = float(record.get('misure_ossa', 0))
+                if val > 0:
+                    measurements.append(val)
+            except (ValueError, TypeError):
+                pass
+
+        return measurements
+
     def _generate_descriptive_summary(self, records, nmi_values, misure_values, siti, aree, saggi, us_list):
         """Genera un sommario descrittivo discorsivo delle statistiche"""
         summary = []
@@ -906,9 +974,10 @@ class FaunaManager(QWidget):
                 # Specie dominanti per il sito principale
                 site_species = {}
                 for r in dominant_site[1]:
-                    sp = r.get('specie', '')
-                    if sp:
-                        site_species[sp] = site_species.get(sp, 0) + 1
+                    species_list = self._extract_species_from_record(r)
+                    for sp in species_list:
+                        if sp:
+                            site_species[sp] = site_species.get(sp, 0) + 1
 
                 if site_species:
                     top_sp = max(site_species.items(), key=lambda x: x[1])
@@ -924,9 +993,10 @@ class FaunaManager(QWidget):
         # Analisi specie
         species_count = {}
         for r in records:
-            sp = r.get('specie', '')
-            if sp:
-                species_count[sp] = species_count.get(sp, 0) + 1
+            species_list = self._extract_species_from_record(r)
+            for sp in species_list:
+                if sp:
+                    species_count[sp] = species_count.get(sp, 0) + 1
 
         if species_count:
             top_3_species = sorted(species_count.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -1121,9 +1191,10 @@ class FaunaManager(QWidget):
                 if records:
                     species_count = {}
                     for r in records:
-                        sp = r.get('specie', '')
-                        if sp:
-                            species_count[sp] = species_count.get(sp, 0) + 1
+                        species_list = self._extract_species_from_record(r)
+                        for sp in species_list:
+                            if sp:
+                                species_count[sp] = species_count.get(sp, 0) + 1
 
                     if species_count:
                         writer.writerow(['DISTRIBUZIONE SPECIE'])
