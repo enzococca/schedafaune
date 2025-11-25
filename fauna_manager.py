@@ -859,7 +859,22 @@ class FaunaManager(QWidget):
                 else:
                     stats_text.append(f"\n{label}: Nessun dato")
 
-            count_values('specie', 'Specie (Top 10)')
+            # Specie - usa estrazione JSON-aware
+            all_species = {}
+            for r in records:
+                species_list = self._extract_species_from_record(r)
+                for sp in species_list:
+                    if sp and sp.strip():
+                        all_species[sp] = all_species.get(sp, 0) + 1
+            if all_species:
+                stats_text.append(f"\nSpecie (Top 10):")
+                sorted_species = sorted(all_species.items(), key=lambda x: x[1], reverse=True)
+                for val, count in sorted_species[:10]:
+                    percentage = (count / len(records)) * 100
+                    stats_text.append(f"  {val}: {count} ({percentage:.1f}%)")
+            else:
+                stats_text.append(f"\nSpecie (Top 10): Nessun dato")
+
             count_values('contesto', 'Contesto')
             count_values('metodologia_recupero', 'Metodologia di Recupero')
             count_values('stato_conservazione', 'Stato di Conservazione')

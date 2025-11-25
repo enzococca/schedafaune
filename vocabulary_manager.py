@@ -32,6 +32,7 @@ class VocabularyManagerDialog(QDialog):
         'numero_stimato_resti',
         'specie',
         'parti_scheletriche',
+        'elemento_anatomico',  # Per tabella misure
         'stato_frammentazione',
         'tracce_combustione',
         'tipo_combustione',

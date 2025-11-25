@@ -97,6 +97,27 @@ INSERT OR IGNORE INTO fauna_voc (campo, valore, ordinamento) VALUES
     ('parti_scheletriche', 'Falangi', 20),
     ('parti_scheletriche', 'Metapodio', 21);
 
+-- ELEMENTO ANATOMICO (per tabella misure - elementi misurabili)
+INSERT OR IGNORE INTO fauna_voc (campo, valore, ordinamento) VALUES
+    ('elemento_anatomico', 'Astragalo', 1),
+    ('elemento_anatomico', 'Calcagno', 2),
+    ('elemento_anatomico', 'Falange I', 3),
+    ('elemento_anatomico', 'Falange II', 4),
+    ('elemento_anatomico', 'Falange III', 5),
+    ('elemento_anatomico', 'Femore', 6),
+    ('elemento_anatomico', 'Metacarpo', 7),
+    ('elemento_anatomico', 'Metatarso', 8),
+    ('elemento_anatomico', 'Omero', 9),
+    ('elemento_anatomico', 'Radio', 10),
+    ('elemento_anatomico', 'Scapola', 11),
+    ('elemento_anatomico', 'Tibia', 12),
+    ('elemento_anatomico', 'Ulna', 13),
+    ('elemento_anatomico', 'Atlante', 14),
+    ('elemento_anatomico', 'Epistrofeo', 15),
+    ('elemento_anatomico', 'Pelvi', 16),
+    ('elemento_anatomico', 'Mandibola', 17),
+    ('elemento_anatomico', 'Altro', 99);
+
 -- ID 21: STATO DI FRAMMENTAZIONE
 INSERT OR IGNORE INTO fauna_voc (campo, valore, ordinamento) VALUES
     ('stato_frammentazione', 'SI', 1),
