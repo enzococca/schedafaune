@@ -28,9 +28,10 @@ CREATE TABLE IF NOT EXISTS "fauna_table" (
     deposizione TEXT DEFAULT '',                            -- ID 15: DEPOSIZIONE (PRIMARIA/SECONDARIA/RIMANEGGIATA)
     numero_stimato_resti TEXT DEFAULT '',                   -- ID 16: NUMERO STIMATO RESTI OSTEOLOGICI
     numero_minimo_individui INTEGER DEFAULT 0,              -- ID 17: NUMERO MINIMO DI INDIVIDUI (NMI)
-    specie TEXT DEFAULT '',                                 -- ID 18: SPECIE
-    parti_scheletriche TEXT DEFAULT '',                     -- ID 19: PARTI SCHELETRICHE PRESENTI
-    misure_ossa NUMERIC(10,2),                              -- ID 20: MISURE DI OSSA
+    specie TEXT DEFAULT '',                                 -- ID 18: SPECIE (backward compatible, prima specie)
+    parti_scheletriche TEXT DEFAULT '',                     -- ID 19: PARTI SCHELETRICHE PRESENTI (backward compatible)
+    specie_psi TEXT DEFAULT '',                             -- ID 18b: SPECIE e PSI multiple (JSON array: [[specie, psi], ...])
+    misure_ossa TEXT DEFAULT '',                            -- ID 20: MISURE DI OSSA (JSON array: [[elemento, specie, GL, GB, Bp, Bd], ...])
 
     -- DATI TAFONOMICI
     stato_frammentazione TEXT DEFAULT '',                   -- ID 21: STATO DI FRAMMENTAZIONE (SI/NO/PARZIALE)
