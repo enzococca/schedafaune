@@ -31,7 +31,7 @@ class FaunaSearchDialog(QDialog):
     def setup_ui(self):
         """Configura l'interfaccia del dialog di ricerca"""
         self.setWindowTitle("Ricerca Schede Fauna")
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(450)
 
         layout = QVBoxLayout(self)
 
@@ -42,19 +42,54 @@ class FaunaSearchDialog(QDialog):
         self.txt_search.setPlaceholderText("Inserisci termine di ricerca...")
         form.addRow("Cerca:", self.txt_search)
 
-        # Filtri
+        # Separatore per i filtri di localizzazione
+        lbl_localizzazione = QLabel("--- Filtri Localizzazione ---")
+        lbl_localizzazione.setStyleSheet("color: #666; font-style: italic;")
+        form.addRow(lbl_localizzazione)
+
+        # Filtro Sito
         self.combo_sito = QComboBox()
         self.combo_sito.addItem("Tutti i siti", "")
         for sito in self.db.get_siti_list():
             self.combo_sito.addItem(sito, sito)
+        self.combo_sito.currentIndexChanged.connect(self.on_sito_changed)
         form.addRow("Sito:", self.combo_sito)
 
+        # Filtro Area
+        self.combo_area = QComboBox()
+        self.combo_area.addItem("Tutte le aree", "")
+        for area in self.db.get_aree_list():
+            self.combo_area.addItem(str(area), str(area))
+        self.combo_area.currentIndexChanged.connect(self.on_area_changed)
+        form.addRow("Area:", self.combo_area)
+
+        # Filtro Saggio
+        self.combo_saggio = QComboBox()
+        self.combo_saggio.addItem("Tutti i saggi", "")
+        for saggio in self.db.get_saggi_list():
+            self.combo_saggio.addItem(str(saggio), str(saggio))
+        form.addRow("Saggio:", self.combo_saggio)
+
+        # Filtro US
+        self.combo_us = QComboBox()
+        self.combo_us.addItem("Tutte le US", "")
+        for us in self.db.get_us_values_list():
+            self.combo_us.addItem(str(us), str(us))
+        form.addRow("US:", self.combo_us)
+
+        # Separatore per i filtri tematici
+        lbl_tematici = QLabel("--- Filtri Tematici ---")
+        lbl_tematici.setStyleSheet("color: #666; font-style: italic;")
+        form.addRow(lbl_tematici)
+
+        # Filtro Contesto
         self.combo_contesto = QComboBox()
         self.combo_contesto.addItem("Tutti i contesti", "")
         for val in self.db.get_voc_values('contesto'):
             self.combo_contesto.addItem(val, val)
         form.addRow("Contesto:", self.combo_contesto)
 
+        # Filtro Specie
         self.combo_specie = QComboBox()
         self.combo_specie.addItem("Tutte le specie", "")
         for val in self.db.get_voc_values('specie'):
@@ -71,12 +106,68 @@ class FaunaSearchDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def on_sito_changed(self):
+        """Aggiorna le combo di area, saggio e US quando cambia il sito"""
+        sito = self.combo_sito.currentData()
+
+        # Aggiorna combo area
+        self.combo_area.blockSignals(True)
+        self.combo_area.clear()
+        self.combo_area.addItem("Tutte le aree", "")
+        for area in self.db.get_aree_list(sito if sito else None):
+            self.combo_area.addItem(str(area), str(area))
+        self.combo_area.blockSignals(False)
+
+        # Aggiorna combo saggio
+        self.combo_saggio.clear()
+        self.combo_saggio.addItem("Tutti i saggi", "")
+        for saggio in self.db.get_saggi_list(sito if sito else None):
+            self.combo_saggio.addItem(str(saggio), str(saggio))
+
+        # Aggiorna combo US
+        self.combo_us.clear()
+        self.combo_us.addItem("Tutte le US", "")
+        for us in self.db.get_us_values_list(sito if sito else None):
+            self.combo_us.addItem(str(us), str(us))
+
+    def on_area_changed(self):
+        """Aggiorna le combo di saggio e US quando cambia l'area"""
+        sito = self.combo_sito.currentData()
+        area = self.combo_area.currentData()
+
+        # Aggiorna combo saggio
+        self.combo_saggio.clear()
+        self.combo_saggio.addItem("Tutti i saggi", "")
+        for saggio in self.db.get_saggi_list(
+            sito if sito else None,
+            area if area else None
+        ):
+            self.combo_saggio.addItem(str(saggio), str(saggio))
+
+        # Aggiorna combo US
+        self.combo_us.clear()
+        self.combo_us.addItem("Tutte le US", "")
+        for us in self.db.get_us_values_list(
+            sito if sito else None,
+            area if area else None
+        ):
+            self.combo_us.addItem(str(us), str(us))
+
     def get_filters(self) -> Dict:
         """Restituisce i filtri impostati"""
         filters = {}
 
         if self.combo_sito.currentData():
             filters['sito'] = self.combo_sito.currentData()
+
+        if self.combo_area.currentData():
+            filters['area'] = self.combo_area.currentData()
+
+        if self.combo_saggio.currentData():
+            filters['saggio'] = self.combo_saggio.currentData()
+
+        if self.combo_us.currentData():
+            filters['us'] = self.combo_us.currentData()
 
         if self.combo_contesto.currentData():
             filters['contesto'] = self.combo_contesto.currentData()

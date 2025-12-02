@@ -532,6 +532,91 @@ class FaunaDBPostgres:
         """)
         return [row['sito'] for row in cursor.fetchall()]
 
+    def get_aree_list(self, sito: str = None) -> List[str]:
+        """
+        Recupera la lista delle aree distinte
+
+        Args:
+            sito: filtro opzionale per sito
+
+        Returns:
+            Lista di aree distinte
+        """
+        cursor = self.conn.cursor()
+        if sito:
+            cursor.execute("""
+                SELECT DISTINCT area FROM us_table
+                WHERE sito = %s AND area IS NOT NULL
+                ORDER BY area
+            """, (sito,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT area FROM us_table
+                WHERE area IS NOT NULL
+                ORDER BY area
+            """)
+        return [row['area'] for row in cursor.fetchall()]
+
+    def get_saggi_list(self, sito: str = None, area: str = None) -> List[str]:
+        """
+        Recupera la lista dei saggi distinti
+
+        Args:
+            sito: filtro opzionale per sito
+            area: filtro opzionale per area
+
+        Returns:
+            Lista di saggi distinti
+        """
+        cursor = self.conn.cursor()
+        conditions = ["saggio IS NOT NULL"]
+        params = []
+
+        if sito:
+            conditions.append("sito = %s")
+            params.append(sito)
+        if area:
+            conditions.append("area = %s")
+            params.append(area)
+
+        query = f"""
+            SELECT DISTINCT saggio FROM us_table
+            WHERE {' AND '.join(conditions)}
+            ORDER BY saggio
+        """
+        cursor.execute(query, params)
+        return [row['saggio'] for row in cursor.fetchall()]
+
+    def get_us_values_list(self, sito: str = None, area: str = None) -> List[str]:
+        """
+        Recupera la lista dei valori US distinti
+
+        Args:
+            sito: filtro opzionale per sito
+            area: filtro opzionale per area
+
+        Returns:
+            Lista di valori US distinti
+        """
+        cursor = self.conn.cursor()
+        conditions = ["us IS NOT NULL"]
+        params = []
+
+        if sito:
+            conditions.append("sito = %s")
+            params.append(sito)
+        if area:
+            conditions.append("area = %s")
+            params.append(area)
+
+        query = f"""
+            SELECT DISTINCT us FROM us_table
+            WHERE {' AND '.join(conditions)}
+            ORDER BY us
+        """
+        cursor.execute(query, params)
+        return [row['us'] for row in cursor.fetchall()]
+
     def close(self):
         """Chiude la connessione al database"""
         if self.conn:
